@@ -1,5 +1,14 @@
-import React from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+  RefreshControl,
+} from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 
 const posts = [
@@ -38,7 +47,18 @@ const posts = [
 ];
 
 export default function HomeScreen() {
-  const renderItem = ({ item }: any) => {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+
+    // Simulate data fetch
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 2000);
+  }, []);
+
+  const renderItem = ({ item }) => {
     const slideAnim = new Animated.Value(100);
 
     Animated.timing(slideAnim, {
@@ -89,6 +109,9 @@ export default function HomeScreen() {
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#007AFF']} />
+        }
       />
     </View>
   );
