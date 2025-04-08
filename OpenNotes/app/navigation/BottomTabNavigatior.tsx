@@ -2,12 +2,10 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import UploadOptionScreen from '../main/upload';
-
 
 import HomeScreen from '../main/home';
 import SearchScreen from '../main/search';
-import UploadScreen from '../main/upload';
+import UploadOptionScreen from '../main/upload';  // Correct Import
 import DownloadScreen from '../main/download';
 import ProfileScreen from '../main/profile';
 
@@ -39,35 +37,36 @@ export default function BottomTabNavigator() {
           borderTopRightRadius: 20,
           height: 70,
         },
-        tabBarIcon: ({ focused }) => {
-          let iconColor = focused ? '#3B82F6' : 'gray';
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
 
           if (route.name === 'Home') {
-            return <Ionicons name="home" size={24} color={iconColor} />;
+            iconName = focused ? 'home' : 'home-outline';
+            return <Ionicons name={iconName} size={24} color={focused ? '#3B82F6' : 'gray'} />;
           } else if (route.name === 'Search') {
-            return <Ionicons name="search" size={24} color={iconColor} />;
+            iconName = focused ? 'search' : 'search-outline';
+            return <Ionicons name={iconName} size={24} color={focused ? '#3B82F6' : 'gray'} />;
           } else if (route.name === 'Download') {
-            return <Feather name="download" size={24} color={iconColor} />;
+            return <Feather name="download" size={24} color={focused ? '#3B82F6' : 'gray'} />;
           } else if (route.name === 'Profile') {
-            return <Ionicons name="person" size={24} color={iconColor} />;
+            iconName = focused ? 'person' : 'person-outline';
+            return <Ionicons name={iconName} size={24} color={focused ? '#3B82F6' : 'gray'} />;
           }
         },
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
-
       <Tab.Screen
         name="Upload"
-        component={UploadScreen}
+        component={UploadOptionScreen} // This navigates to UploadOptionScreen
         options={{
-          tabBarIcon: () => (
-            <Feather name="upload" size={28} color="#fff" style={{ lineHeight: 30 }} />
+          tabBarIcon: ({ focused }) => (
+            <Feather name="plus" size={24} color="#fff" />
           ),
           tabBarButton: (props) => <CustomTabBarButton {...props} />,
         }}
       />
-
       <Tab.Screen name="Download" component={DownloadScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
@@ -81,14 +80,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   uploadButton: {
-    width: 65,
-    height: 65,
-    borderRadius: 32.5,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
   },
 });
-
-export default BottomTabNavigator;
