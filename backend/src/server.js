@@ -6,6 +6,8 @@ import signup from "./controllers/register.js";
 import post from "./controllers/post.js";
 import interact from "./controllers/interactions.js";
 import feed from "./controllers/feed.js";
+import comment from "./controllers/comment.js"
+import bookmark from "./controllers/bookmark.js"
 
 const app = express();
 app.use(cors());
@@ -24,6 +26,8 @@ app.use("/register",signup);
 app.use("/post",post);
 app.use("/interact",interact);
 app.use("/feed",feed);
+app.use("/comment",comment);
+app.use("/bookmark",bookmark);
 
 const PORT = process.env.PORT || 5000;
 

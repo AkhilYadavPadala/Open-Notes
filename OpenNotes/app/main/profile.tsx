@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,14 +6,30 @@ import {
   Image,
   Pressable,
   Alert,
-  TextInput,
+  ActivityIndicator,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+
 
 export default function ProfileScreen() {
   const [profileImage, setProfileImage] = useState(
     'https://via.placeholder.com/150'
   );
+  const [loading, setLoading] = useState(false);
+
+  // Optional: Fetch the currently logged-in user on mount
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const sessionUser = supabase.auth.getUser();
+    sessionUser.then(({ data }) => {
+      if (data?.user) {
+        setUser(data.user);
+        if (data.user.user_metadata?.avatar_url) {
+          setProfileImage(data.user.user_metadata.avatar_url);
+        }
+      }
+    });
+  }, []);
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -27,6 +43,29 @@ export default function ProfileScreen() {
     }
   };
 
+  async function signInWithGoogle() {
+    setLoading(true);
+    try {
+      const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUri,
+        },
+      });
+      if (error) {
+        Alert.alert('Error', error.message);
+      } else {
+        // Supabase handles redirect automatically in Expo
+        Alert.alert('Success', 'Check your browser to complete login');
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Failed to sign in with Google');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header} />
@@ -36,7 +75,7 @@ export default function ProfileScreen() {
           <Text style={styles.uploadText}>Upload Profile</Text>
         </Pressable>
 
-        <Text style={styles.username}>John Doe</Text>
+        <Text style={styles.username}>{user?.email || 'John Doe'}</Text>
         <Text style={styles.bio}>Passionate Developer & Tech Lover 🚀</Text>
 
         <View style={styles.statsContainer}>
@@ -54,18 +93,38 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <Pressable style={styles.button} onPress={() => Alert.alert('Edit Profile')}>
+        <Pressable
+          style={styles.button}
+          onPress={() => Alert.alert('Edit Profile')}
+        >
           <Text style={styles.buttonText}>Edit Profile</Text>
         </Pressable>
 
-        <Pressable style={styles.button} onPress={() => Alert.alert('Settings')}>
+        <Pressable
+          style={styles.button}
+          onPress={() => Alert.alert('Settings')}
+        >
           <Text style={styles.buttonText}>Settings</Text>
         </Pressable>
 
         <Pressable
           style={[styles.button, { backgroundColor: '#EF4444' }]}
-          onPress={() => Alert.alert('Logged Out')}>
+          onPress={() => Alert.alert('Logged Out')}
+        >
           <Text style={styles.buttonText}>Logout</Text>
+        </Pressable>
+
+        {/* Google Login Button */}
+        <Pressable
+          style={[styles.button, { backgroundColor: '#4285F4', marginTop: 20 }]}
+          onPress={signInWithGoogle}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Sign in with Google</Text>
+          )}
         </Pressable>
       </View>
     </View>

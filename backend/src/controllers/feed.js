@@ -74,7 +74,10 @@ router.get("/personalizedfeed/:user_id", async (req, res) => {
         // 4. Query for recommended posts (excluding already interacted posts)
         let query = supabase
             .from("opennotes")
-            .select("*")
+.select(`*,
+  user_interactions:user_interactions!left(user_id, interaction_type, post_id),
+  bookmarks:bookmarks!left(user_id, opennote_id)`)
+
             .order("created_at", { ascending: false });
 
         if (searchKeywords.length > 0) {
@@ -113,7 +116,18 @@ router.get("/personalizedfeed/:user_id", async (req, res) => {
             });
         }
 
-        res.json({ feed: recommendedFeed });
+        res.json({
+            feed: recommendedFeed.map(post => {
+              console.log("📄 PDF URL for post:", post.title, post.url); // Add this
+              return {
+                ...post,
+                showPdf: false,
+                showDescription: false
+              };
+            })
+          });
+          
+          
 
     } catch (err) {
         console.error("❌ Personalized Feed error:", err);

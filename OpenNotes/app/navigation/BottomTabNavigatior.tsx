@@ -2,14 +2,126 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, Feather } from '@expo/vector-icons';
+import { createStackNavigator } from '@react-navigation/stack';
 
 import HomeScreen from '../main/home';
 import SearchScreen from '../main/search';
-import UploadOptionScreen from '../main/upload';  // Correct Import
+import UploadOptionScreen from '../main/upload';
 import DownloadScreen from '../main/download';
 import ProfileScreen from '../main/profile';
+import PdfWebViewer from '../main/pdfViewer';
+import CommentScreen from '../main/CommentScreen'; // Adjust path as needed
+
 
 const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
+
+const HomeStack = () => {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="HomeMain" 
+        component={HomeScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="Search" 
+        component={SearchScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen
+        name="PdfWebViewer"
+        component={PdfWebViewer}
+        options={({ navigation }) => ({
+          headerShown: true,
+          title: 'View PDF',
+          headerLeft: () => (
+            <TouchableOpacity 
+              onPress={() => navigation.goBack()}
+              style={{ marginLeft: 15 }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#3B82F6" />
+            </TouchableOpacity>
+          ),
+        })}
+      />
+      <Stack.Screen
+        name="Comment"
+        component={CommentScreen}
+        options={{
+          headerShown: true,
+          title: 'Comments',
+        }}
+      />
+    </Stack.Navigator>
+  );
+};
+
+// Inside BottomTabNavigator.tsx
+const SearchStack = () => {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="SearchMain" 
+        component={SearchScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen
+        name="PdfWebViewer"
+        component={PdfWebViewer}
+        options={({ navigation }) => ({
+          headerShown: true,
+          title: 'View PDF',
+          headerLeft: () => (
+            <TouchableOpacity 
+              onPress={() => navigation.goBack()}
+              style={{ marginLeft: 15 }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#3B82F6" />
+            </TouchableOpacity>
+          ),
+        })}
+      />
+    </Stack.Navigator>
+  );
+};
+
+const DownloadStack = () => {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="DownloadMain" 
+        component={DownloadScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen
+        name="PdfWebViewer"
+        component={PdfWebViewer}
+        options={({ navigation }) => ({
+          headerShown: true,
+          title: 'View PDF',
+          headerLeft: () => (
+            <TouchableOpacity 
+              onPress={() => navigation.goBack()}
+              style={{ marginLeft: 15 }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#3B82F6" />
+            </TouchableOpacity>
+          ),
+        })}
+      />
+      <Stack.Screen
+        name="Comment"
+        component={CommentScreen}
+        options={{
+          headerShown: true,
+          title: 'Comments',
+        }}
+      />
+    </Stack.Navigator>
+  );
+};
+
 
 const CustomTabBarButton = ({ children, onPress }) => {
   return (
@@ -37,7 +149,7 @@ export default function BottomTabNavigator() {
           borderTopRightRadius: 20,
           height: 70,
         },
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ focused }) => {
           let iconName;
 
           if (route.name === 'Home') {
@@ -55,11 +167,11 @@ export default function BottomTabNavigator() {
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Search" component={SearchScreen} />
+      <Tab.Screen name="Home" component={HomeStack} />
+      <Tab.Screen name="Search" component={SearchStack} />
       <Tab.Screen
         name="Upload"
-        component={UploadOptionScreen} // This navigates to UploadOptionScreen
+        component={UploadOptionScreen}
         options={{
           tabBarIcon: ({ focused }) => (
             <Feather name="plus" size={24} color="#fff" />
@@ -67,7 +179,7 @@ export default function BottomTabNavigator() {
           tabBarButton: (props) => <CustomTabBarButton {...props} />,
         }}
       />
-      <Tab.Screen name="Download" component={DownloadScreen} />
+      <Tab.Screen name="Download" component={DownloadStack} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
