@@ -8,28 +8,93 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { supabase } from '../utils/supabase';
+import * as ImagePicker from 'expo-image-picker';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
+import * as Google from 'expo-auth-session/providers/google';
+import Constants from 'expo-constants';
 
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function ProfileScreen() {
   const [profileImage, setProfileImage] = useState(
     'https://via.placeholder.com/150'
   );
   const [loading, setLoading] = useState(false);
-
-  // Optional: Fetch the currently logged-in user on mount
   const [user, setUser] = useState<any>(null);
+  const redirectUri = AuthSession.makeRedirectUri({
+    scheme: 'opennotes', // your custom scheme from app.json
+  });
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    clientId: '296978714021-0bccbunpvlsn4eubihoi1bq6f0sj7k2o.apps.googleusercontent.com',
+    iosClientId: '296978714021-32itoknn1ldgd2egsi1rdj87bknd6t50.apps.googleusercontent.com',
+    androidClientId: '296978714021-32itoknn1ldgd2egsi1rdj87bknd6t50.apps.googleusercontent.com',
+    redirectUri,
+    scopes: ['profile', 'email'],
+  });
+
+
 
   useEffect(() => {
-    const sessionUser = supabase.auth.getUser();
-    sessionUser.then(({ data }) => {
-      if (data?.user) {
-        setUser(data.user);
-        if (data.user.user_metadata?.avatar_url) {
-          setProfileImage(data.user.user_metadata.avatar_url);
-        }
+    const checkSession = async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) {
+        setUser(sessionData.session.user);
+        const avatar = sessionData.session.user.user_metadata?.avatar_url;
+        if (avatar) setProfileImage(avatar);
       }
-    });
+    };
+    checkSession();
   }, []);
+
+  useEffect(() => {
+    if (response?.type === 'success' && response.authentication) {
+      const idToken = response.authentication.idToken;
+      const accessToken = response.authentication.accessToken;
+  
+      console.log('✅ ID Token:', idToken);
+      console.log('✅ Access Token:', accessToken);
+  
+      if (!idToken || !accessToken) {
+        Alert.alert('Missing token(s)', 'ID Token or Access Token is not received from Google');
+        return;
+      }
+  
+      handleGoogleSignIn(idToken, accessToken);
+    } else if (response?.type === 'error') {
+      console.error('Google Auth Error:', response.error);
+      Alert.alert('Auth Error', 'Failed to authenticate with Google');
+    }
+  }, [response]);
+  
+  
+  
+
+  const handleGoogleSignIn = async (idToken: string, accessToken: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: idToken,
+        access_token: accessToken,
+      });
+  
+      if (error) {
+        Alert.alert('Error', error.message);
+      } else {
+        Alert.alert('Success', 'Successfully signed in with Google');
+        setUser(data.user);
+      }
+    } catch (error: any) {
+      console.error('Google Sign-In Error:', error);
+      Alert.alert('Sign-In Error', error.message || 'An unknown error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -42,29 +107,6 @@ export default function ProfileScreen() {
       setProfileImage(result.assets[0].uri);
     }
   };
-
-  async function signInWithGoogle() {
-    setLoading(true);
-    try {
-      const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUri,
-        },
-      });
-      if (error) {
-        Alert.alert('Error', error.message);
-      } else {
-        // Supabase handles redirect automatically in Expo
-        Alert.alert('Success', 'Check your browser to complete login');
-      }
-    } catch (err) {
-      Alert.alert('Error', 'Failed to sign in with Google');
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
     <View style={styles.container}>
@@ -109,23 +151,30 @@ export default function ProfileScreen() {
 
         <Pressable
           style={[styles.button, { backgroundColor: '#EF4444' }]}
-          onPress={() => Alert.alert('Logged Out')}
+          onPress={async () => {
+            await supabase.auth.signOut();
+            setUser(null);
+            Alert.alert('Logged Out');
+          }}
         >
           <Text style={styles.buttonText}>Logout</Text>
         </Pressable>
 
-        {/* Google Login Button */}
-        <Pressable
-          style={[styles.button, { backgroundColor: '#4285F4', marginTop: 20 }]}
-          onPress={signInWithGoogle}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Sign in with Google</Text>
-          )}
-        </Pressable>
+        {!user && (
+          <View style={styles.googleButtonContainer}>
+            <Pressable
+              style={[styles.button, { backgroundColor: '#4285F4' }]}
+              onPress={() => promptAsync()}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Sign in with Google</Text>
+              )}
+            </Pressable>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -197,5 +246,10 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  googleButtonContainer: {
+    marginTop: 20,
+    width: '100%',
+    alignItems: 'center',
   },
 });

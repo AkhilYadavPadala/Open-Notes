@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 
-const BACKEND_URL = 'http://192.168.29.15:5000';
+const BACKEND_URL = 'http://192.168.225.251:5000';
 
 type Post = {
   id: number;

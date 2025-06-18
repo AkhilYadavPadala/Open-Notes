@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import debounce from 'lodash.debounce';
 
-const BACKEND_URL = 'http://192.168.29.15:5000';
+const BACKEND_URL = 'http://192.168.225.251:5000';
 const defaultTags = ['AI', 'Machine Learning', 'python', 'Dbms'];
 
 export default function SearchScreen() {

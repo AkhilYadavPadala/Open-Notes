@@ -89,7 +89,7 @@ export default function UploadOptionScreen({ navigation }) {
     formData.append('tags', tags);
 
     try {
-      const response = await axios.post('http://192.168.29.15:5000/upload/upload', formData, {
+      const response = await axios.post('http://192.168.225.251:5000/upload/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -115,7 +115,7 @@ export default function UploadOptionScreen({ navigation }) {
 
     try {
       setLoading(true);
-      const response = await axios.post('http://192.168.29.15:5000/post/post', {
+      const response = await axios.post('http://192.168.225.251:5000/post/post', {
         title,
         description: textData,
       });

@@ -15,7 +15,7 @@ import axios from 'axios';
 import { useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-const BACKEND_URL = 'http://192.168.29.15:5000';
+const BACKEND_URL = 'http://192.168.225.251:5000';
 
 export default function CommentScreen() {
   const route = useRoute();

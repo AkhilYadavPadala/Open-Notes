@@ -4,7 +4,7 @@ import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
-const BACKEND_URL = 'http://192.168.29.15:5000';
+const BACKEND_URL = 'http://192.168.225.251:5000';
 const userId = 'f3b9e103-26bd-4c88-b7c7-417801677ce5';
 
 const DownloadScreen = () => {
