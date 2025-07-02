@@ -5,93 +5,190 @@ import {
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import axios from 'axios';
+// @ts-ignore
 import debounce from 'lodash.debounce';
+import { supabase } from '../utils/supabase';
+import { handleShare } from '../utils/shareHandler';
 
-const BACKEND_URL = 'http://192.168.225.251:5000';
+const BACKEND_URL = 'http://192.168.19.251:5000';
 const defaultTags = ['AI', 'Machine Learning', 'python', 'Dbms'];
 
+type SearchPost = {
+  id: number;
+  title: string;
+  description: string;
+  url?: string;
+  showDescription: boolean;
+  isLiked: boolean;
+  viewCounted: boolean;
+  likeCount: number;
+  viewCount: number;
+  isInteractionPending?: boolean;
+  commentCount?: number;
+  bookmarkCount?: number;
+  commentcount?: number;
+  bookmarkcount?: number;
+  isBookmarked: boolean;
+  isBookmarkPending?: boolean;
+};
+
+async function getCurrentUserId() {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const email = sessionData.session?.user?.email;
+  if (!email) return null;
+  const { data, error } = await supabase
+    .from('users')
+    .select('id')
+    .ilike('email', email)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data.id;
+}
+
 export default function SearchScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<any>>();
   const [search, setSearch] = useState('');
-  const [results, setResults] = useState([]);
+  const [results, setResults] = useState<SearchPost[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  const userId = 'd718b7b0-0a63-43aa-bbe6-cecd97737d22';
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const id = await getCurrentUserId();
+      setUserId(id);
+    };
+    fetchUserId();
+  }, []);
 
   const fetchResults = useCallback(async (query = '') => {
-    if (!query.trim()) return;
+    if (!query.trim() || !userId) return;
     try {
       setLoading(true);
-      const res = await axios.get(`${BACKEND_URL}/retrieve/files?query=${encodeURIComponent(query)}`);
-      const enrichedResults = res.data.map(post => ({
+      const res = await axios.get(`${BACKEND_URL}/retrieve/files?query=${encodeURIComponent(query)}&user_id=${userId}`);
+      const enrichedResults = res.data.map((post: any): SearchPost => ({
         ...post,
         showDescription: false,
-        isLiked: post.likedByUser || false,
+        isLiked: post.isLiked ?? false,
         viewCounted: false,
-        likeCount: post.likeCount || 0,
-        viewCount: post.viewCount || 0
+        likeCount: post.likecount ?? 0,
+        viewCount: post.viewcount ?? 0,
+        isInteractionPending: false,
+        commentCount: post.commentCount ?? 0,
+        bookmarkCount: post.bookmarkcount ?? 0,
+        bookmarkcount: post.bookmarkcount ?? 0,
+        isBookmarked: post.isBookmarked ?? post.isbookmarked ?? false,
+        isBookmarkPending: false,
       }));
       setResults(enrichedResults);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching results:', err.message);
       Alert.alert('Error', 'Failed to fetch results');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   const debouncedFetch = useCallback(debounce(fetchResults, 400), [fetchResults]);
 
-useEffect(() => {
-  if (search.trim() !== '') {
-    debouncedFetch(search);
-  } else {
-    setResults([]); // clear the list when search is empty
-  }
-}, [search, debouncedFetch]);
+  useEffect(() => {
+    if (search.trim() !== '' && userId) {
+      debouncedFetch(search);
+    } else {
+      setResults([]); // clear the list when search is empty
+    }
+  }, [search, debouncedFetch, userId]);
 
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    if (search.trim() !== '' && userId) {
+      fetchResults(search).finally(() => setRefreshing(false));
+    } else {
+      setResults([]);  // clear results
+      setRefreshing(false);
+    }
+  }, [fetchResults, search, userId]);
 
-const onRefresh = useCallback(() => {
-  setRefreshing(true);
-  if (search.trim() !== '') {
-    fetchResults(search).finally(() => setRefreshing(false));
-  } else {
-    setResults([]);  // clear results
-    setRefreshing(false);
-  }
-}, [fetchResults, search]);
-
-
-  const handleInteraction = async (post_id, type) => {
+  const handleInteraction = async (post_id: number, type: 'like' | 'view' | 'share') => {
+    if (!userId) return;
     try {
-      await axios.post(`${BACKEND_URL}/interact/interact`, {
+      if (type === 'share') {
+        Alert.alert('Info', 'Share feature not implemented yet.');
+        return;
+      }
+      // For like interactions, perform optimistic update first
+      if (type === 'like') {
+        setResults(prev =>
+          prev.map(post => {
+            if (post.id === post_id) {
+              const wasLiked = post.isLiked;
+              return {
+                ...post,
+                isLiked: !wasLiked,
+                likeCount: post.likeCount + (wasLiked ? -1 : 1),
+                isInteractionPending: true,
+              };
+            }
+            return post;
+          })
+        );
+      }
+      const res = await axios.post(`${BACKEND_URL}/interact/interact`, {
         user_id: userId,
         post_id,
         interaction_type: type,
       });
-
+      if (type === 'like') {
+        const { isLiked, likecount } = res.data;
+        setResults(prev =>
+          prev.map(post =>
+            post.id === post_id
+              ? {
+                  ...post,
+                  isLiked: isLiked ?? post.isLiked,
+                  likeCount: (typeof likecount === 'number' && likecount >= 0) ? likecount : post.likeCount,
+                  isInteractionPending: false,
+                }
+              : post
+          )
+        );
+      } else if (type === 'view') {
+        const { viewcount } = res.data;
+        setResults(prev =>
+          prev.map(post =>
+            post.id === post_id
+              ? {
+                  ...post,
+                  viewCount: viewcount ?? post.viewCount,
+                  viewCounted: true,
+                }
+              : post
+          )
+        );
+      }
+    } catch (err: any) {
+      console.error(`Failed to record ${type}:`, err.message);
+      Alert.alert('Error', `Failed to ${type} post`);
       if (type === 'like') {
         setResults(prev =>
           prev.map(post =>
             post.id === post_id
               ? {
                   ...post,
-                  isLiked: !post.isLiked,
-                  likeCount: post.isLiked ? post.likeCount - 1 : post.likeCount + 1,
+                  isLiked: post.isLiked,
+                  likeCount: post.likeCount,
+                  isInteractionPending: false,
                 }
               : post
           )
         );
       }
-    } catch (err) {
-      console.error(`Failed to record ${type}:`, err.message);
-      Alert.alert('Error', `Failed to ${type} post`);
     }
   };
 
-  const toggleDescription = (postId) => {
+  const toggleDescription = (postId: number) => {
     setResults(prev =>
       prev.map(post => {
         if (post.id === postId) {
@@ -100,8 +197,7 @@ const onRefresh = useCallback(() => {
             return {
               ...post,
               showDescription: true,
-              viewCounted: true,
-              viewCount: post.viewCount + 1
+              viewCounted: true, // optimistic update
             };
           }
           return { ...post, showDescription: !post.showDescription };
@@ -111,71 +207,141 @@ const onRefresh = useCallback(() => {
     );
   };
 
-const renderItem = ({ item }) => (
-  <View style={styles.postCard}>
-    <Text style={styles.title}>{item.title}</Text>
-    <Text style={styles.metaText}>{item.viewCount} views • {item.likeCount} likes</Text>
+  const toggleBookmark = async (post_id: number) => {
+    if (!userId) return;
+    // Optimistic update
+    setResults(prev =>
+      prev.map(post => {
+        if (post.id === post_id) {
+          const wasBookmarked = post.isBookmarked;
+          return {
+            ...post,
+            isBookmarked: !wasBookmarked,
+            bookmarkCount: (post.bookmarkCount ?? 0) + (wasBookmarked ? -1 : 1),
+            bookmarkcount: (post.bookmarkCount ?? 0) + (wasBookmarked ? -1 : 1),
+            isBookmarkPending: true,
+          };
+        }
+        return post;
+      })
+    );
+    try {
+      const res = await axios.post(`${BACKEND_URL}/bookmark/bookmark`, {
+        user_id: userId,
+        opennote_id: post_id,
+      });
+      console.log('Bookmark API response:', res.data);
+      setResults(prev =>
+        prev.map(post => {
+          if (post.id === post_id) {
+            const status = res.data.status;
+            const backendCount = typeof res.data.bookmarkcount === 'number' ? res.data.bookmarkcount : post.bookmarkCount ?? 0;
+            let isBookmarked = post.isBookmarked;
+            if (status === 'added') {
+              isBookmarked = true;
+            } else if (status === 'removed') {
+              isBookmarked = false;
+            }
+            return {
+              ...post,
+              isBookmarked,
+              bookmarkCount: backendCount,
+              bookmarkcount: backendCount,
+              isBookmarkPending: false,
+            };
+          }
+          return post;
+        })
+      );
+    } catch (err: any) {
+      // Revert optimistic update
+      setResults(prev =>
+        prev.map(post => {
+          if (post.id === post_id) {
+            return {
+              ...post,
+              isBookmarked: post.isBookmarked,
+              bookmarkCount: post.bookmarkCount,
+              bookmarkcount: post.bookmarkCount,
+              isBookmarkPending: false,
+            };
+          }
+          return post;
+        })
+      );
+      console.error('❌ Bookmark toggle error:', err.message);
+      Alert.alert('Error', 'Failed to toggle bookmark');
+    }
+  };
 
-{item.url && (
-  <TouchableOpacity
-    style={styles.pdfButton}
-    onPress={() => {
-      console.log("Opening PDF:", item.url);
-      navigation.navigate('PdfWebViewer', { fileUrl: item.url });
-    }}
-  >
-    <Ionicons name="document-text-outline" size={20} color="#007AFF" />
-    <Text style={styles.pdfButtonText}>View PDF</Text>
-  </TouchableOpacity>
-)}
+  const renderItem = ({ item }: { item: SearchPost }) => (
+    <View style={styles.postCard}>
+      <Text style={styles.title}>{item.title}</Text>
+      <Text style={styles.metaText}>{item.viewCount} views • {item.likeCount} likes</Text>
 
-{!item.showDescription && (
-  <TouchableOpacity onPress={() => toggleDescription(item.id)}>
-    <Text style={styles.toggleDescriptionText}>Show Description</Text>
-  </TouchableOpacity>
-)}
-{item.showDescription && (
-  <>
-    <TouchableOpacity onPress={() => toggleDescription(item.id)}>
-      <Text style={styles.toggleDescriptionText}>Hide Description</Text>
-    </TouchableOpacity>
-    <Text style={styles.description}>{item.description}</Text>
-  </>
-)}
+      {item.url && (
+        <TouchableOpacity
+          style={styles.pdfButton}
+          onPress={() => navigation.navigate('PdfWebViewer', { fileUrl: item.url })}
+        >
+          <Ionicons name="document-text-outline" size={20} color="#007AFF" />
+          <Text style={styles.pdfButtonText}>View PDF</Text>
+        </TouchableOpacity>
+      )}
 
-
-    <View style={styles.actions}>
-      <TouchableOpacity
-        style={styles.actionBtn}
-        onPress={() => handleInteraction(item.id, 'like')}
-      >
-        <Ionicons
-          name={item.isLiked ? "thumbs-up" : "thumbs-up-outline"}
-          size={20}
-          color={item.isLiked ? "#3B82F6" : "#007AFF"}
-        />
-        <Text style={[styles.actionText, item.isLiked && { color: "#3B82F6" }]}>Like</Text>
+      <TouchableOpacity onPress={() => toggleDescription(item.id)}>
+        <Text style={styles.toggleDescriptionText}>
+          {item.showDescription ? 'Hide Description' : 'Show Description'}
+        </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.actionBtn}
-        onPress={() => Alert.alert('Coming Soon', 'Comment feature will be added soon')}
-      >
-        <Ionicons name="chatbubble-outline" size={20} color="#007AFF" />
-        <Text style={styles.actionText}>Comment</Text>
-      </TouchableOpacity>
+      {item.showDescription && (
+        <Text style={styles.description}>{item.description}</Text>
+      )}
 
-      <TouchableOpacity
-        style={styles.actionBtn}
-        onPress={() => handleInteraction(item.id, 'share')}
-      >
-        <Ionicons name="share-social-outline" size={20} color="#007AFF" />
-        <Text style={styles.actionText}>Share</Text>
-      </TouchableOpacity>
+      <View style={styles.actions}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => !item.isInteractionPending && handleInteraction(item.id, 'like')}
+          disabled={item.isInteractionPending}
+        >
+          <Ionicons
+            name={item.isLiked ? 'thumbs-up' : 'thumbs-up-outline'}
+            size={20}
+            color={item.isLiked ? '#3B82F6' : '#007AFF'}
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => navigation.navigate('Comment', { postId: item.id, userId: userId! })}
+        >
+          <Ionicons name="chatbubble-outline" size={20} color="#007AFF" />
+          <Text style={styles.countText}>{item.commentcount ?? 0}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => handleShare(item, userId)}
+        >
+          <Ionicons name="share-social-outline" size={20} color="#007AFF" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => toggleBookmark(item.id)}
+          disabled={item.isBookmarkPending}
+        >
+          <Ionicons
+            name={item.isBookmarked ? 'bookmark' : 'bookmark-outline'}
+            size={20}
+            color={item.isBookmarked ? '#f59e0b' : '#007AFF'}
+          />
+          <Text style={styles.countText}>{item.bookmarkCount ?? 0}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
-  </View>
-);
-
+  );
 
   return (
     <View style={styles.container}>
@@ -278,20 +444,29 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
+    alignItems: 'center',
   },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
     paddingVertical: 6,
     borderRadius: 20,
     backgroundColor: '#F0F7FF',
+    marginHorizontal: 2,
   },
-  actionText: { color: '#007AFF', marginLeft: 4, fontWeight: '500' },
   noResult: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 50,
+  },
+  countText: {
+    fontSize: 13,
+    color: '#888',
+    marginLeft: 2,
+    fontWeight: '600',
   },
 });

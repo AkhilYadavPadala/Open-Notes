@@ -1,4 +1,5 @@
 import React from 'react';
+import type { ReactNode } from 'react';
 import { View, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, Feather } from '@expo/vector-icons';
@@ -53,6 +54,14 @@ const HomeStack = () => {
           title: 'Comments',
         }}
       />
+      <Stack.Screen
+        name="ProfileScreen"
+        component={ProfileScreen}
+        options={{
+          headerShown: true,
+          title: 'Profile',
+        }}
+      />
     </Stack.Navigator>
   );
 };
@@ -81,6 +90,22 @@ const SearchStack = () => {
             </TouchableOpacity>
           ),
         })}
+      />
+      <Stack.Screen
+        name="Comment"
+        component={CommentScreen}
+        options={{
+          headerShown: true,
+          title: 'Comments',
+        }}
+      />
+      <Stack.Screen
+        name="ProfileScreen"
+        component={ProfileScreen}
+        options={{
+          headerShown: true,
+          title: 'Profile',
+        }}
       />
     </Stack.Navigator>
   );
@@ -118,16 +143,28 @@ const DownloadStack = () => {
           title: 'Comments',
         }}
       />
+      <Stack.Screen
+        name="ProfileScreen"
+        component={ProfileScreen}
+        options={{
+          headerShown: true,
+          title: 'Profile',
+        }}
+      />
     </Stack.Navigator>
   );
 };
 
-
-const CustomTabBarButton = ({ children, onPress }) => {
+type CustomTabBarButtonProps = {
+  children: ReactNode;
+  onPress?: (...args: any[]) => void;
+};
+const CustomTabBarButton = ({ children, onPress }: CustomTabBarButtonProps) => {
+  const handlePress = onPress || (() => {});
   return (
     <TouchableOpacity
       style={styles.uploadButtonContainer}
-      onPress={onPress}
+      onPress={handlePress}
       activeOpacity={0.7}>
       <View style={styles.uploadButton}>{children}</View>
     </TouchableOpacity>
@@ -150,7 +187,7 @@ export default function BottomTabNavigator() {
           height: 70,
         },
         tabBarIcon: ({ focused }) => {
-          let iconName;
+          let iconName: any;
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';

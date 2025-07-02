@@ -1,106 +1,198 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { supabase } from '../utils/supabase';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { handleShare } from '../utils/shareHandler';
 
-const BACKEND_URL = 'http://192.168.225.251:5000';
-const userId = 'f3b9e103-26bd-4c88-b7c7-417801677ce5';
+const BACKEND_URL = 'http://192.168.19.251:5000';
+
+type BookmarkedPost = {
+  id: number;
+  title: string;
+  description: string;
+  url?: string;
+  showDescription: boolean;
+  isBookmarked: boolean;
+  isLiked: boolean;
+  viewCounted: boolean;
+  likeCount: number;
+  viewCount: number;
+  isInteractionPending?: boolean;
+  commentCount?: number;
+  bookmarkCount?: number;
+};
+
+async function getCurrentUserId() {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const email = sessionData.session?.user?.email;
+  if (!email) return null;
+  const { data, error } = await supabase
+    .from('users')
+    .select('id')
+    .ilike('email', email)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data.id;
+}
 
 const DownloadScreen = () => {
-  const [bookmarkedPosts, setBookmarkedPosts] = useState([]);
-  const navigation = useNavigation();
+  const [bookmarkedPosts, setBookmarkedPosts] = useState<BookmarkedPost[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  const navigation = useNavigation<StackNavigationProp<any>>();
+
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const id = await getCurrentUserId();
+      setUserId(id);
+    };
+    fetchUserId();
+  }, []);
 
 const fetchBookmarks = async () => {
+  if (!userId) return;
   try {
     const res = await axios.get(`${BACKEND_URL}/bookmark/bookmark/${userId}`);
-    const enriched = res.data.bookmarks.map(post => ({
+    const enriched = res.data.bookmarks.map((post: any): BookmarkedPost => ({
       ...post,
       showDescription: false,
-      isBookmarked: true,
-      isLiked: post.isLiked || false,
-      likeCount: post.likeCount || 0,
-      viewCount: post.viewCount || 0,
-      viewCounted: false,   // for tracking if view interaction was counted
+      isBookmarked: post.isBookmarked ?? post.isbookmarked ?? true,
+      isLiked: post.isLiked ?? false,
+      viewCounted: false,
+      likeCount: post.likecount ?? 0,
+      viewCount: post.viewcount ?? 0,
+      isInteractionPending: false,
+      commentCount: post.commentcount ?? 0,
+      bookmarkCount: post.bookmarkcount ?? 0,
     }));
     setBookmarkedPosts(enriched || []);
-  } catch (err) {
-    console.error("Failed to load bookmarks:", err.message);
+  } catch (err: unknown) {
+    console.error("Failed to load bookmarks:", (err as Error).message);
     Alert.alert("Error", "Failed to fetch bookmarks");
   }
 };
 
-
   useFocusEffect(
     useCallback(() => {
       fetchBookmarks();
-    }, [])
+    }, [userId])
   );
 
-const toggleDescription = (postId) => {
-  setBookmarkedPosts(prev => prev.map(post => {
-    if (post.id === postId) {
-      if (!post.showDescription && !post.viewCounted) {
-        handleInteraction(post.id, 'view');
-        return {
-          ...post,
-          showDescription: true,
-          viewCounted: true,
-          viewCount: post.viewCount + 1,
-        };
+const toggleDescription = (postId: number) => {
+  setBookmarkedPosts(prev =>
+    prev.map(post => {
+      if (post.id === postId) {
+        if (!post.showDescription && !post.viewCounted) {
+          handleInteraction(post.id, 'view');
+          return {
+            ...post,
+            showDescription: true,
+            viewCounted: true, // optimistic update
+          };
+        }
+        return { ...post, showDescription: !post.showDescription };
       }
-      return { ...post, showDescription: !post.showDescription };
-    }
-    return post;
-  }));
+      return post;
+    })
+  );
 };
 
-
-  const toggleBookmark = async (post_id) => {
+  const toggleBookmark = async (post_id: number) => {
+    if (!userId) return;
     try {
       const res = await axios.post(`${BACKEND_URL}/bookmark/bookmark`, {
         user_id: userId,
         opennote_id: post_id,
       });
-
       if (res.data.status === 'removed') {
-        setBookmarkedPosts(prev => prev.filter(post => post.id !== post_id));
+        setBookmarkedPosts((prev: BookmarkedPost[]) => prev.filter((post: BookmarkedPost) => post.id !== post_id));
       }
-    } catch (err) {
-      console.error('❌ Bookmark toggle error:', err.message);
+    } catch (err: unknown) {
+      console.error('❌ Bookmark toggle error:', (err as Error).message);
       Alert.alert('Error', 'Failed to remove bookmark');
     }
   };
 
-  const handleInteraction = async (post_id, type) => {
-  try {
-    await axios.post(`${BACKEND_URL}/interact/interact`, {
-      user_id: userId,
-      post_id,
-      interaction_type: type,
-    });
-
-    if (type === 'like') {
-      setBookmarkedPosts(prev =>
-        prev.map(post =>
-          post.id === post_id
-            ? {
+  const handleInteraction = async (post_id: number, type: 'like' | 'view' | 'share') => {
+    if (!userId) return;
+    try {
+      if (type === 'share') {
+        Alert.alert('Info', 'Share feature not implemented yet.');
+        return;
+      }
+      // For like interactions, perform optimistic update first
+      if (type === 'like') {
+        setBookmarkedPosts(prev =>
+          prev.map(post => {
+            if (post.id === post_id) {
+              const wasLiked = post.isLiked;
+              return {
                 ...post,
-                isLiked: !post.isLiked,
-                likeCount: post.isLiked ? post.likeCount - 1 : post.likeCount + 1,
-              }
-            : post
-        )
-      );
+                isLiked: !wasLiked,
+                likeCount: post.likeCount + (wasLiked ? -1 : 1),
+                isInteractionPending: true,
+              };
+            }
+            return post;
+          })
+        );
+      }
+      const res = await axios.post(`${BACKEND_URL}/interact/interact`, {
+        user_id: userId,
+        post_id,
+        interaction_type: type,
+      });
+      if (type === 'like') {
+        const { isLiked, likecount } = res.data;
+        setBookmarkedPosts(prev =>
+          prev.map(post =>
+            post.id === post_id
+              ? {
+                  ...post,
+                  isLiked: isLiked ?? post.isLiked,
+                  likeCount: (typeof likecount === 'number' && likecount >= 0) ? likecount : post.likeCount,
+                  isInteractionPending: false,
+                }
+              : post
+          )
+        );
+      } else if (type === 'view') {
+        const { viewcount } = res.data;
+        setBookmarkedPosts(prev =>
+          prev.map(post =>
+            post.id === post_id
+              ? {
+                  ...post,
+                  viewCount: viewcount ?? post.viewCount,
+                  viewCounted: true,
+                }
+              : post
+          )
+        );
+      }
+    } catch (err: unknown) {
+      console.error(`❌ Failed to record ${type}:`, (err as Error).message);
+      Alert.alert('Error', `Failed to ${type} post`);
+      if (type === 'like') {
+        setBookmarkedPosts(prev =>
+          prev.map(post =>
+            post.id === post_id
+              ? {
+                  ...post,
+                  isLiked: post.isLiked,
+                  likeCount: post.likeCount,
+                  isInteractionPending: false,
+                }
+              : post
+          )
+        );
+      }
     }
-  } catch (err) {
-    console.error(`❌ Failed to record ${type}:`, err.message);
-    Alert.alert('Error', `Failed to ${type} post`);
-  }
-};
+  };
 
-
-  const renderItem = ({ item }) => (
+  const renderItem = ({ item }: { item: BookmarkedPost }) => (
   <View style={styles.postCard}>
     <Text style={styles.title}>{item.title}</Text>
     <Text style={styles.metaText}>{item.viewCount} views • {item.likeCount} likes</Text>
@@ -128,32 +220,29 @@ const toggleDescription = (postId) => {
     <View style={styles.actions}>
       <TouchableOpacity
         style={styles.actionBtn}
-        onPress={() => handleInteraction(item.id, 'like')}
+        onPress={() => !item.isInteractionPending && handleInteraction(item.id, 'like')}
+        disabled={item.isInteractionPending}
       >
         <Ionicons
           name={item.isLiked ? "thumbs-up" : "thumbs-up-outline"}
           size={20}
           color={item.isLiked ? "#3B82F6" : "#007AFF"}
         />
-        <Text style={[styles.actionText, item.isLiked && { color: "#3B82F6" }]}>
-          Like
-        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.actionBtn}
-        onPress={() => navigation.navigate('Comment', { postId: item.id, userId })}
+        onPress={() => navigation.navigate('Comment', { postId: item.id, userId: userId! })}
       >
         <Ionicons name="chatbubble-outline" size={20} color="#007AFF" />
-        <Text style={styles.actionText}>Comment</Text>
+        <Text style={styles.countText}>{item.commentCount ?? 0}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.actionBtn}
-        onPress={() => handleInteraction(item.id, 'share')}
+        onPress={() => handleShare(item, userId)}
       >
         <Ionicons name="share-social-outline" size={20} color="#007AFF" />
-        <Text style={styles.actionText}>Share</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -161,9 +250,7 @@ const toggleDescription = (postId) => {
         onPress={() => toggleBookmark(item.id)}
       >
         <Ionicons name="bookmark" size={20} color="#f59e0b" />
-        <Text style={[styles.actionText, { color: "#f59e0b" }]}>
-          Bookmarked
-        </Text>
+        <Text style={styles.countText}>{item.bookmarkCount ?? 0}</Text>
       </TouchableOpacity>
     </View>
   </View>
@@ -172,7 +259,7 @@ const toggleDescription = (postId) => {
   return (
     <FlatList
       data={bookmarkedPosts}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => item.id.toString()}
       renderItem={renderItem}
       ListEmptyComponent={<Text style={styles.emptyText}>No bookmarks found.</Text>}
     />
@@ -225,29 +312,34 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-around',
     marginTop: 15,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
+    alignItems: 'center',
   },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
     paddingVertical: 6,
     borderRadius: 20,
     backgroundColor: '#FFF7E0',
-  },
-  actionText: {
-    color: '#007AFF',
-    marginLeft: 4,
-    fontWeight: '500',
+    marginHorizontal: 2,
   },
   emptyText: {
     textAlign: 'center',
     marginTop: 30,
     fontSize: 16,
     color: '#aaa',
+  },
+  countText: {
+    fontSize: 13,
+    color: '#888',
+    marginLeft: 2,
+    fontWeight: '600',
   },
 });

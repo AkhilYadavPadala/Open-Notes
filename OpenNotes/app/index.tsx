@@ -1,2 +1,54 @@
+import { useState, useEffect } from 'react';
+import { supabase } from './utils/supabase';
+import { View, ActivityIndicator } from 'react-native';
 import BottomTabNavigator from './navigation/BottomTabNavigatior';
-export default BottomTabNavigator;
+import LoginScreen from './main/LoginScreen';
+import { createStackNavigator } from '@react-navigation/stack';
+import * as WebBrowser from 'expo-web-browser';
+import InterestsScreen from './main/InterestsScreen';
+
+WebBrowser.maybeCompleteAuthSession();
+const Stack = createStackNavigator();
+
+function AuthStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="Login" 
+        component={LoginScreen} 
+        options={{ headerShown: false }} 
+      />
+    </Stack.Navigator>
+  );
+}
+
+export default function App() {
+  const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    checkSession();
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  return user ? <BottomTabNavigator /> : <AuthStack />;
+}

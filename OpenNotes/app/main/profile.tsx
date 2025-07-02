@@ -6,95 +6,70 @@ import {
   Image,
   Pressable,
   Alert,
-  ActivityIndicator,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { supabase } from '../utils/supabase';
 import * as ImagePicker from 'expo-image-picker';
-import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
-import * as Google from 'expo-auth-session/providers/google';
-import Constants from 'expo-constants';
+import { useRoute } from '@react-navigation/native';
 
-
-WebBrowser.maybeCompleteAuthSession();
+const TAGS = [
+  'Machine Learning', 'Python', 'AI', 'DBMS', 'Web Development', 'Data Science',
+  'JavaScript', 'C++', 'Cloud', 'Cybersecurity', 'Blockchain', 'React', 'Node.js',
+  'Android', 'iOS', 'DevOps', 'UI/UX', 'Networking', 'Algorithms', 'Linux',
+];
 
 export default function ProfileScreen() {
-  const [profileImage, setProfileImage] = useState(
-    'https://via.placeholder.com/150'
-  );
-  const [loading, setLoading] = useState(false);
+  const route = useRoute<any>();
+  const userIdParam = route.params?.userId;
+  const [profileImage, setProfileImage] = useState('https://via.placeholder.com/150');
   const [user, setUser] = useState<any>(null);
-  const redirectUri = AuthSession.makeRedirectUri({
-    scheme: 'opennotes', // your custom scheme from app.json
-  });
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: '296978714021-0bccbunpvlsn4eubihoi1bq6f0sj7k2o.apps.googleusercontent.com',
-    iosClientId: '296978714021-32itoknn1ldgd2egsi1rdj87bknd6t50.apps.googleusercontent.com',
-    androidClientId: '296978714021-32itoknn1ldgd2egsi1rdj87bknd6t50.apps.googleusercontent.com',
-    redirectUri,
-    scopes: ['profile', 'email'],
-  });
-
-
+  const [userInfo, setUserInfo] = useState<{ name: string; interests: string[] } | null>(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkSession = async () => {
+    const fetchProfile = async () => {
       const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData.session) {
-        setUser(sessionData.session.user);
-        const avatar = sessionData.session.user.user_metadata?.avatar_url;
-        if (avatar) setProfileImage(avatar);
-      }
-    };
-    checkSession();
-  }, []);
-
-  useEffect(() => {
-    if (response?.type === 'success' && response.authentication) {
-      const idToken = response.authentication.idToken;
-      const accessToken = response.authentication.accessToken;
-  
-      console.log('✅ ID Token:', idToken);
-      console.log('✅ Access Token:', accessToken);
-  
-      if (!idToken || !accessToken) {
-        Alert.alert('Missing token(s)', 'ID Token or Access Token is not received from Google');
+      setCurrentUserId(sessionData.session?.user?.id || null);
+      if (userIdParam) {
+        // Fetch another user's profile by id
+        const { data, error } = await supabase
+          .from('users')
+          .select('name, interests, avatar_url')
+          .eq('id', userIdParam)
+          .maybeSingle();
+        if (data) {
+          setUserInfo({
+            name: data.name,
+            interests: data.interests ? data.interests.split(',').map((t: string) => t.trim()) : [],
+          });
+          setProfileImage(data.avatar_url || 'https://via.placeholder.com/150');
+        }
         return;
       }
-  
-      handleGoogleSignIn(idToken, accessToken);
-    } else if (response?.type === 'error') {
-      console.error('Google Auth Error:', response.error);
-      Alert.alert('Auth Error', 'Failed to authenticate with Google');
-    }
-  }, [response]);
-  
-  
-  
-
-  const handleGoogleSignIn = async (idToken: string, accessToken: string) => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signInWithIdToken({
-        provider: 'google',
-        token: idToken,
-        access_token: accessToken,
-      });
-  
-      if (error) {
-        Alert.alert('Error', error.message);
-      } else {
-        Alert.alert('Success', 'Successfully signed in with Google');
-        setUser(data.user);
+      const email = sessionData.session?.user?.email;
+      setUser(sessionData.session?.user);
+      const avatar = sessionData.session?.user?.user_metadata?.avatar_url;
+      if (avatar) setProfileImage(avatar);
+      if (!email) return;
+      const { data, error } = await supabase
+        .from('users')
+        .select('name, interests')
+        .ilike('email', email)
+        .maybeSingle();
+      if (data) {
+        setUserInfo({
+          name: data.name,
+          interests: data.interests ? data.interests.split(',').map((t: string) => t.trim()) : [],
+        });
+        setSelectedTags(data.interests ? data.interests.split(',').map((t: string) => t.trim()) : []);
       }
-    } catch (error: any) {
-      console.error('Google Sign-In Error:', error);
-      Alert.alert('Sign-In Error', error.message || 'An unknown error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
+    };
+    fetchProfile();
+  }, [userIdParam]);
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -102,84 +77,125 @@ export default function ProfileScreen() {
       allowsEditing: true,
       quality: 1,
     });
-
     if (!result.canceled) {
       setProfileImage(result.assets[0].uri);
     }
   };
 
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const handleSaveInterests = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ interests: selectedTags.join(', ') })
+        .ilike('email', user.email);
+      if (error) throw error;
+      setUserInfo((prev) => prev ? { ...prev, interests: selectedTags } : prev);
+      setEditModalVisible(false);
+      Alert.alert('Success', 'Interests updated!');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update interests');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   return (
     <View style={styles.container}>
       <View style={styles.header} />
       <View style={styles.profileContainer}>
-        <Pressable onPress={pickImage}>
+        {(!userIdParam || userIdParam === currentUserId) ? (
+          <Pressable onPress={pickImage} style={{ alignItems: 'center' }}>
+            <Image source={{ uri: profileImage }} style={styles.profileImage} />
+            <Text style={styles.uploadText}>Upload Profile</Text>
+          </Pressable>
+        ) : (
           <Image source={{ uri: profileImage }} style={styles.profileImage} />
-          <Text style={styles.uploadText}>Upload Profile</Text>
-        </Pressable>
-
-        <Text style={styles.username}>{user?.email || 'John Doe'}</Text>
-        <Text style={styles.bio}>Passionate Developer & Tech Lover 🚀</Text>
-
-        <View style={styles.statsContainer}>
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>25</Text>
-            <Text style={styles.statLabel}>Posts</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>1.2k</Text>
-            <Text style={styles.statLabel}>Followers</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>180</Text>
-            <Text style={styles.statLabel}>Following</Text>
+        )}
+        <Text style={styles.username}>{userInfo?.name || user?.email || 'User'}</Text>
+        <View style={styles.interestsContainer}>
+          <Text style={styles.sectionTitle}>Interests</Text>
+          <View style={styles.tagsWrap}>
+            {userInfo?.interests && userInfo.interests.length > 0 ? (
+              userInfo.interests.map((tag) => (
+                <View key={tag} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.noInterests}>No interests set</Text>
+            )}
           </View>
         </View>
-
-        <Pressable
-          style={styles.button}
-          onPress={() => Alert.alert('Edit Profile')}
-        >
-          <Text style={styles.buttonText}>Edit Profile</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.button}
-          onPress={() => Alert.alert('Settings')}
-        >
-          <Text style={styles.buttonText}>Settings</Text>
-        </Pressable>
-
-        <Pressable
-          style={[styles.button, { backgroundColor: '#EF4444' }]}
-          onPress={async () => {
-            await supabase.auth.signOut();
-            setUser(null);
-            Alert.alert('Logged Out');
-          }}
-        >
-          <Text style={styles.buttonText}>Logout</Text>
-        </Pressable>
-
-        {!user && (
-          <View style={styles.googleButtonContainer}>
-            <Pressable
-              style={[styles.button, { backgroundColor: '#4285F4' }]}
-              onPress={() => promptAsync()}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Sign in with Google</Text>
-              )}
+        {/* Only show edit/logout for current user */}
+        {(!userIdParam || userIdParam === currentUserId) && (
+          <>
+            <Pressable style={styles.button} onPress={() => setEditModalVisible(true)}>
+              <Text style={styles.buttonText}>Edit Profile</Text>
             </Pressable>
-          </View>
+            <Pressable
+              style={[styles.button, { backgroundColor: '#EF4444' }]}
+              onPress={async () => {
+                await supabase.auth.signOut();
+                setUser(null);
+                Alert.alert('Logged Out');
+              }}
+            >
+              <Text style={styles.buttonText}>Logout</Text>
+            </Pressable>
+          </>
         )}
       </View>
+      {/* Edit Interests Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Interests</Text>
+            <ScrollView contentContainerStyle={styles.tagsWrap}>
+              {TAGS.map((tag) => (
+                <Pressable
+                  key={tag}
+                  style={[styles.tag, selectedTags.includes(tag) && styles.tagSelected]}
+                  onPress={() => toggleTag(tag)}
+                >
+                  <Text style={[styles.tagText, selectedTags.includes(tag) && styles.tagTextSelected]}>{tag}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Pressable
+              style={[styles.button, { marginTop: 20, backgroundColor: '#3B82F6' }]}
+              onPress={handleSaveInterests}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>{loading ? 'Saving...' : 'Save'}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.button, { marginTop: 10, backgroundColor: '#aaa' }]}
+              onPress={() => setEditModalVisible(false)}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
+// Styles
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f9fafb' },
   header: {
@@ -206,50 +222,84 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   username: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: 'bold',
     marginTop: 10,
     color: '#111',
+    marginBottom: 8,
   },
-  bio: {
-    fontSize: 14,
-    color: 'gray',
-    textAlign: 'center',
-    marginTop: 5,
-    marginBottom: 10,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  interestsContainer: {
     width: '100%',
-    marginVertical: 15,
+    marginTop: 10,
+    marginBottom: 10,
+    alignItems: 'flex-start',
   },
-  statBox: {
-    alignItems: 'center',
-  },
-  statNumber: {
+  sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111',
+    fontWeight: '600',
+    color: '#3B82F6',
+    marginBottom: 6,
+    marginLeft: 2,
   },
-  statLabel: {
-    fontSize: 13,
-    color: 'gray',
+  tagsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 4,
+  },
+  tag: {
+    backgroundColor: '#E0E7FF',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    margin: 4,
+  },
+  tagSelected: {
+    backgroundColor: '#3B82F6',
+  },
+  tagText: {
+    color: '#3B82F6',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  tagTextSelected: {
+    color: '#fff',
+  },
+  noInterests: {
+    color: '#888',
+    fontStyle: 'italic',
+    marginLeft: 4,
   },
   button: {
     backgroundColor: '#3B82F6',
     paddingVertical: 10,
-    paddingHorizontal: 60,
-    borderRadius: 25,
+    paddingHorizontal: 30,
+    borderRadius: 20,
     marginTop: 10,
+    alignItems: 'center',
   },
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
+    fontSize: 16,
   },
-  googleButtonContainer: {
-    marginTop: 20,
-    width: '100%',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#3B82F6',
+    marginBottom: 16,
   },
 });
