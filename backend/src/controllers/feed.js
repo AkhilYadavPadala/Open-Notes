@@ -92,6 +92,45 @@ router.get("/personalizedfeed/:user_id", async (req, res) => {
         const { data: recommendedFeed, error: feedError } = await query;
         if (feedError) throw feedError;
 
+        // Fetch all liked post_ids for this user
+        const { data: likedInteractions, error: likedError } = await supabase
+          .from("user_interactions")
+          .select("post_id")
+          .eq("user_id", user_id)
+          .eq("interaction_type", "like");
+        if (likedError) throw likedError;
+        const likedPostIds = likedInteractions ? likedInteractions.map(i => i.post_id) : [];
+
+        // Fetch all bookmarked post_ids for this user
+        const { data: bookmarksData, error: bookmarksError } = await supabase
+          .from("bookmarks")
+          .select("opennote_id")
+          .eq("user_id", user_id);
+        if (bookmarksError) throw bookmarksError;
+        const bookmarkedPostIds = bookmarksData ? bookmarksData.map(b => b.opennote_id) : [];
+
+        // Fetch comment counts for all posts
+        const postIds = recommendedFeed.map(post => post.id);
+        let commentCounts = {};
+        let bookmarkCounts = {};
+        if (postIds.length > 0) {
+          const { data: commentData } = await supabase
+            .from('comments')
+            .select('post_id')
+            .in('post_id', postIds);
+          (commentData || []).forEach(row => {
+            commentCounts[row.post_id] = (commentCounts[row.post_id] || 0) + 1;
+          });
+
+          const { data: bookmarkData } = await supabase
+            .from('bookmarks')
+            .select('opennote_id')
+            .in('opennote_id', postIds);
+          (bookmarkData || []).forEach(row => {
+            bookmarkCounts[row.opennote_id] = (bookmarkCounts[row.opennote_id] || 0) + 1;
+          });
+        }
+
         // 5. Add basic ranking (posts with more matching keywords first)
         if (recommendedFeed && recommendedFeed.length > 0 && searchKeywords.length > 0) {
             recommendedFeed.forEach(post => {
@@ -117,14 +156,15 @@ router.get("/personalizedfeed/:user_id", async (req, res) => {
         }
 
         res.json({
-            feed: recommendedFeed.map(post => {
-              console.log("📄 PDF URL for post:", post.title, post.url); // Add this
-              return {
-                ...post,
-                showPdf: false,
-                showDescription: false
-              };
-            })
+            feed: recommendedFeed.map(post => ({
+              ...post,
+              isLiked: likedPostIds.includes(post.id),
+              isBookmarked: bookmarkedPostIds.includes(post.id),
+              commentcount: commentCounts[post.id] || 0,
+              bookmarkcount: bookmarkCounts[post.id] || 0,
+              showPdf: false,
+              showDescription: false
+            }))
           });
           
           

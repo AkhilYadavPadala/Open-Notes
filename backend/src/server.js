@@ -8,6 +8,7 @@ import interact from "./controllers/interactions.js";
 import feed from "./controllers/feed.js";
 import comment from "./controllers/comment.js"
 import bookmark from "./controllers/bookmark.js"
+import oauthRouter from "./controllers/oauth.js";
 
 const app = express();
 app.use(cors());
@@ -28,6 +29,7 @@ app.use("/interact",interact);
 app.use("/feed",feed);
 app.use("/comment",comment);
 app.use("/bookmark",bookmark);
+app.use("/oauth", oauthRouter);
 
 const PORT = process.env.PORT || 5000;
 

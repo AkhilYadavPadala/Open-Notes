@@ -32,9 +32,10 @@ router.get("/comment/:post_id", async (req, res) => {
   try {
     const { post_id } = req.params;
 
+    // Join comments with users to get user info
     const { data, error } = await supabase
       .from("comments")
-      .select("*")
+      .select("*, user:users(id, name, avatar_url)")
       .eq("post_id", post_id)
       .order("created_at", { ascending: false });
 

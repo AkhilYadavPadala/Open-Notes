@@ -85,7 +85,44 @@ router.get("/bookmark/:user_id", async (req, res) => {
 
     if (error) throw error;
 
-    const bookmarks = data.map(entry => entry.opennotes);
+    // Fetch all liked post_ids for this user
+    const { data: likedInteractions, error: likedError } = await supabase
+      .from("user_interactions")
+      .select("post_id")
+      .eq("user_id", user_id)
+      .eq("interaction_type", "like");
+    if (likedError) throw likedError;
+    const likedPostIds = likedInteractions ? likedInteractions.map(i => i.post_id) : [];
+
+    // Add isLiked to each bookmarked post
+    // Also add commentCount and bookmarkCount
+    const postIds = data.map(entry => entry.opennotes.id);
+    let commentCounts = {};
+    let bookmarkCounts = {};
+    if (postIds.length > 0) {
+      const { data: commentData } = await supabase
+        .from('comments')
+        .select('post_id')
+        .in('post_id', postIds);
+      (commentData || []).forEach(row => {
+        commentCounts[row.post_id] = (commentCounts[row.post_id] || 0) + 1;
+      });
+
+      const { data: bookmarkData } = await supabase
+        .from('bookmarks')
+        .select('opennote_id')
+        .in('opennote_id', postIds);
+      (bookmarkData || []).forEach(row => {
+        bookmarkCounts[row.opennote_id] = (bookmarkCounts[row.opennote_id] || 0) + 1;
+      });
+    }
+
+    const bookmarks = data.map(entry => ({
+      ...entry.opennotes,
+      isLiked: likedPostIds.includes(entry.opennotes.id),
+      commentcount: commentCounts[entry.opennotes.id] || 0,
+      bookmarkcount: bookmarkCounts[entry.opennotes.id] || 0,
+    }));
     res.json({ bookmarks });
   } catch (err) {
     console.error("❌ Fetch Bookmarks Error:", err);
