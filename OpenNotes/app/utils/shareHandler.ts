@@ -1,7 +1,8 @@
 import { Share, Alert } from 'react-native';
 import axios from 'axios';
+import { getBackendUrl } from './config';
 
-const BACKEND_URL = 'http://192.168.19.251:5000';
+const BACKEND_URL = getBackendUrl();
 
 export async function handleShare(post: any, userId: string | null) {
   try {

@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -17,8 +18,9 @@ import { supabase } from '../utils/supabase';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { handleShare } from '../utils/shareHandler';
 import * as DocumentPicker from 'expo-document-picker';
+import { getBackendUrl } from '../utils/config';
 
-const BACKEND_URL = 'http://192.168.19.251:5000';
+const BACKEND_URL = getBackendUrl();
 
 type Post = {
   id: number;
@@ -66,6 +68,9 @@ export default function HomeScreen({ navigation }: any) {
   const [uploadsModal, setUploadsModal] = useState<{ visible: boolean; postId?: number }>({ visible: false });
   const [uploadsList, setUploadsList] = useState<any[]>([]);
   const [uploadsLoading, setUploadsLoading] = useState(false);
+  const [uploadFormModal, setUploadFormModal] = useState<{ visible: boolean; postId?: number }>({ visible: false });
+  const [uploadForm, setUploadForm] = useState<{ title: string; description: string; tags: string; file: any }>({ title: '', description: '', tags: '', file: null });
+  const [uploadFormLoading, setUploadFormLoading] = useState(false);
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -79,6 +84,7 @@ export default function HomeScreen({ navigation }: any) {
   const fetchFeed = useCallback(async () => {
     if (!userId) return;
     try {
+      console.log('🌐 Making API request to:', `${BACKEND_URL}/feed/personalizedfeed/${userId}`);
       const res = await axios.get(`${BACKEND_URL}/feed/personalizedfeed/${userId}`);
       const enrichedPosts: Post[] = res.data.feed.map((post: any) => ({
         ...post,
@@ -95,7 +101,8 @@ export default function HomeScreen({ navigation }: any) {
       }));
       setPosts(enrichedPosts);
     } catch (err: any) {
-      console.error('Failed to fetch feed:', err.message);
+      console.error('❌ Failed to fetch feed:', err.message);
+      console.error('🔍 Error details:', err);
       Alert.alert('Error', 'Failed to load feed');
     }
   }, [userId]);
@@ -309,7 +316,7 @@ const handleInteraction = async (post_id: number, type: 'like' | 'view' | 'share
   const fetchUploads = async (postId: number) => {
     setUploadsLoading(true);
     try {
-      const res = await axios.get(`${BACKEND_URL}/post/${postId}/uploads`);
+      const res = await axios.get(`${BACKEND_URL}/upload/uploads-for-post/${postId}`);
       setUploadsList(res.data.uploads || []);
     } catch (err) {
       setUploadsList([]);
@@ -326,6 +333,56 @@ const handleInteraction = async (post_id: number, type: 'like' | 'view' | 'share
   const closeUploadsModal = () => {
     setUploadsModal({ visible: false });
     setUploadsList([]);
+  };
+
+  const openUploadFormModal = (postId: number) => {
+    setUploadFormModal({ visible: true, postId });
+    setUploadForm({ title: '', description: '', tags: '', file: null });
+  };
+  const closeUploadFormModal = () => {
+    setUploadFormModal({ visible: false });
+    setUploadForm({ title: '', description: '', tags: '', file: null });
+  };
+  const handlePickPDF = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setUploadForm(form => ({ ...form, file: result.assets[0] }));
+        Alert.alert('File Selected', result.assets[0].name);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick PDF file');
+    }
+  };
+  const handleUploadPDFToPost = async () => {
+    if (!uploadFormModal.postId || !uploadForm.file || !uploadForm.title.trim() || !uploadForm.description.trim()) {
+      Alert.alert('Error', 'Please fill all fields and select a PDF file');
+      return;
+    }
+    setUploadFormLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', {
+        uri: uploadForm.file.uri,
+        name: uploadForm.file.name || 'document.pdf',
+        type: uploadForm.file.mimeType || 'application/pdf',
+      } as any);
+      formData.append('title', uploadForm.title);
+      formData.append('description', uploadForm.description);
+      formData.append('tags', uploadForm.tags);
+      const response = await axios.post(`${BACKEND_URL}/upload/upload-to-post/${uploadFormModal.postId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      Alert.alert('Success', 'PDF uploaded to post!');
+      closeUploadFormModal();
+      if (uploadsModal.visible && uploadsModal.postId === uploadFormModal.postId) {
+        fetchUploads(uploadFormModal.postId);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to upload PDF');
+    } finally {
+      setUploadFormLoading(false);
+    }
   };
 
   // Render a single post card
@@ -350,9 +407,9 @@ const handleInteraction = async (post_id: number, type: 'like' | 'view' | 'share
         {/* Upload PDF button for text posts */}
         {item.type === 'text' && (
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <TouchableOpacity style={styles.pdfButton} onPress={() => handleAttachPDF(item.id)} disabled={uploadingMap[item.id]}>
+            <TouchableOpacity style={styles.pdfButton} onPress={() => openUploadFormModal(item.id)}>
               <Ionicons name="cloud-upload-outline" size={20} color="#007AFF" />
-              <Text style={styles.pdfButtonText}>{uploadingMap[item.id] ? 'Uploading...' : 'Upload PDF'}</Text>
+              <Text style={styles.pdfButtonText}>Upload PDF</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.pdfButton, { marginLeft: 8 }]} onPress={() => openUploadsModal(item.id)}>
               <Ionicons name="list-outline" size={20} color="#007AFF" />
@@ -415,7 +472,7 @@ const handleInteraction = async (post_id: number, type: 'like' | 'view' | 'share
   return (
     <>
       <FlatList
-        data={posts}
+        data={posts.filter(post => post && post.id)}
         keyExtractor={item => item.id.toString()}
         renderItem={renderItem}
         refreshControl={
@@ -428,7 +485,56 @@ const handleInteraction = async (post_id: number, type: 'like' | 'view' | 'share
         }
         contentContainerStyle={{ paddingBottom: 20 }}
       />
-      {/* Uploads Modal */}
+      {/* Upload PDF Modal */}
+      <Modal
+        visible={uploadFormModal.visible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={closeUploadFormModal}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '85%' }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 12 }}>Upload PDF to Post</Text>
+            <TextInput
+              placeholder="Title"
+              value={uploadForm.title}
+              onChangeText={text => setUploadForm(form => ({ ...form, title: text }))}
+              style={[styles.inputBox, { marginBottom: 10 }]}
+              placeholderTextColor="#aaa"
+            />
+            <TextInput
+              placeholder="Description"
+              value={uploadForm.description}
+              onChangeText={text => setUploadForm(form => ({ ...form, description: text }))}
+              style={[styles.inputBox, { marginBottom: 10, height: 80 }]}
+              multiline
+              placeholderTextColor="#aaa"
+            />
+            <TextInput
+              placeholder="Tags (comma separated)"
+              value={uploadForm.tags}
+              onChangeText={text => setUploadForm(form => ({ ...form, tags: text }))}
+              style={[styles.inputBox, { marginBottom: 10 }]}
+              placeholderTextColor="#aaa"
+            />
+            <TouchableOpacity style={styles.pdfButton} onPress={handlePickPDF}>
+              <Ionicons name="document-text-outline" size={20} color="#007AFF" />
+              <Text style={styles.pdfButtonText}>{uploadForm.file ? uploadForm.file.name : 'Select PDF'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.pdfButton, { backgroundColor: '#3B82F6', marginTop: 16 }]}
+              onPress={handleUploadPDFToPost}
+              disabled={uploadFormLoading}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>{uploadFormLoading ? 'Uploading...' : 'Upload PDF'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={closeUploadFormModal} style={{ marginTop: 16, alignSelf: 'center' }}>
+              <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 16 }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      {/* Uploads Modal (unchanged, but now shows PDFs from opennotes) */}
       <Modal
         visible={uploadsModal.visible}
         animationType="slide"
@@ -451,7 +557,7 @@ const handleInteraction = async (post_id: number, type: 'like' | 'view' | 'share
                     closeUploadsModal();
                     navigation.navigate('PdfWebViewer', { fileUrl: item.url });
                   }}>
-                    <Text style={{ color: '#2563EB', fontWeight: '600' }}>{item.filename || 'PDF'}</Text>
+                    <Text style={{ color: '#2563EB', fontWeight: '600' }}>{item.title || 'PDF'}</Text>
                     <Text style={{ color: '#888', fontSize: 12 }}>{new Date(item.created_at).toLocaleString()}</Text>
                   </TouchableOpacity>
                 )}
@@ -556,5 +662,15 @@ const styles = StyleSheet.create({
     color: '#888',
     marginLeft: 2,
     fontWeight: '600',
+  },
+  inputBox: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    backgroundColor: '#F9FAFB',
+    marginBottom: 10,
   },
 });

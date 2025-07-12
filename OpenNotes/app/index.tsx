@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './utils/supabase';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Text, Image, StyleSheet } from 'react-native';
 import BottomTabNavigator from './navigation/BottomTabNavigatior';
 import LoginScreen from './main/LoginScreen';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -19,6 +19,17 @@ function AuthStack() {
         options={{ headerShown: false }} 
       />
     </Stack.Navigator>
+  );
+}
+
+function SplashScreen() {
+  return (
+    <View style={styles.splashContainer}>
+      {/* Replace with your logo if available */}
+      <Image source={require('../assets/images/splash-icon.png')} style={styles.splashLogo} />
+      <Text style={styles.splashTitle}>Open Notes</Text>
+      <ActivityIndicator size="large" color="#2563EB" style={{ marginTop: 24 }} />
+    </View>
   );
 }
 
@@ -43,12 +54,30 @@ export default function App() {
   }, []);
 
   if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <SplashScreen />;
   }
 
   return user ? <BottomTabNavigator /> : <AuthStack />;
 }
+
+const styles = StyleSheet.create({
+  splashContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  splashLogo: {
+    width: 100,
+    height: 100,
+    marginBottom: 24,
+    resizeMode: 'contain',
+  },
+  splashTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#2563EB',
+    marginBottom: 8,
+    letterSpacing: 1.2,
+  },
+});

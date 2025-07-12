@@ -92,6 +92,21 @@ router.get("/personalizedfeed/:user_id", async (req, res) => {
         const { data: recommendedFeed, error: feedError } = await query;
         if (feedError) throw feedError;
 
+        // Fallback: If no personalized posts found, fetch latest posts
+        let finalFeed = recommendedFeed;
+        if (!finalFeed || finalFeed.length === 0) {
+            const { data: fallbackFeed, error: fallbackError } = await supabase
+                .from("opennotes")
+                .select(`*,
+                  user_interactions:user_interactions!left(user_id, interaction_type, post_id),
+                  bookmarks:bookmarks!left(user_id, opennote_id)`)
+                .order("created_at", { ascending: false })
+                .limit(20); // Limit as needed
+
+            if (fallbackError) throw fallbackError;
+            finalFeed = fallbackFeed;
+        }
+
         // Fetch all liked post_ids for this user
         const { data: likedInteractions, error: likedError } = await supabase
           .from("user_interactions")
@@ -110,7 +125,7 @@ router.get("/personalizedfeed/:user_id", async (req, res) => {
         const bookmarkedPostIds = bookmarksData ? bookmarksData.map(b => b.opennote_id) : [];
 
         // Fetch comment counts for all posts
-        const postIds = recommendedFeed.map(post => post.id);
+        const postIds = finalFeed.map(post => post.id);
         let commentCounts = {};
         let bookmarkCounts = {};
         if (postIds.length > 0) {
@@ -132,8 +147,8 @@ router.get("/personalizedfeed/:user_id", async (req, res) => {
         }
 
         // 5. Add basic ranking (posts with more matching keywords first)
-        if (recommendedFeed && recommendedFeed.length > 0 && searchKeywords.length > 0) {
-            recommendedFeed.forEach(post => {
+        if (finalFeed && finalFeed.length > 0 && searchKeywords.length > 0) {
+            finalFeed.forEach(post => {
                 let score = 0;
                 const postText = `${post.tags || ''} ${post.title || ''} ${post.description || ''}`.toLowerCase();
                 
@@ -147,7 +162,7 @@ router.get("/personalizedfeed/:user_id", async (req, res) => {
             });
 
             // Sort by relevance score (highest first), then by date
-            recommendedFeed.sort((a, b) => {
+            finalFeed.sort((a, b) => {
                 if (b.relevanceScore !== a.relevanceScore) {
                     return b.relevanceScore - a.relevanceScore;
                 }
@@ -156,16 +171,18 @@ router.get("/personalizedfeed/:user_id", async (req, res) => {
         }
 
         res.json({
-            feed: recommendedFeed.map(post => ({
-              ...post,
-              isLiked: likedPostIds.includes(post.id),
-              isBookmarked: bookmarkedPostIds.includes(post.id),
-              commentcount: commentCounts[post.id] || 0,
-              bookmarkcount: bookmarkCounts[post.id] || 0,
-              showPdf: false,
-              showDescription: false
-            }))
-          });
+  feed: finalFeed
+    .filter(post => post && post.id) // Exclude null/undefined and ensure post has an ID
+    .map(post => ({
+      ...post,
+      isLiked: likedPostIds.includes(post.id),
+      isBookmarked: bookmarkedPostIds.includes(post.id),
+      commentcount: commentCounts[post.id] || 0,
+      bookmarkcount: bookmarkCounts[post.id] || 0,
+      showPdf: false,
+      showDescription: false
+    }))
+});
           
           
 

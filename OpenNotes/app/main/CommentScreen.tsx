@@ -15,8 +15,9 @@ import {
 import axios from 'axios';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { getBackendUrl } from '../utils/config';
 
-const BACKEND_URL = 'http://192.168.19.251:5000';
+const BACKEND_URL = getBackendUrl();
 
 type Comment = {
   id: string;

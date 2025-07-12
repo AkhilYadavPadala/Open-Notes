@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AntDesign } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import axios from 'axios';
+import { getBackendUrl } from '../utils/config';
 
 export default function UploadOptionScreen({ navigation }) {
   const textAnim = useRef(new Animated.Value(0)).current;
@@ -89,7 +90,7 @@ export default function UploadOptionScreen({ navigation }) {
     formData.append('tags', tags);
 
     try {
-      const response = await axios.post('http://192.168.19.251:5000/upload/upload', formData, {
+      const response = await axios.post(`${getBackendUrl()}/upload/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -115,7 +116,7 @@ export default function UploadOptionScreen({ navigation }) {
 
     try {
       setLoading(true);
-      const response = await axios.post('http://192.168.19.251:5000/post/post', {
+      const response = await axios.post(`${getBackendUrl()}/post/post`, {
         title,
         description: textData,
       });

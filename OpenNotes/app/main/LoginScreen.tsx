@@ -6,6 +6,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
+import { getBackendUrl } from '../utils/config';
 
 console.log('LoginScreen mounted');
 
@@ -185,10 +186,54 @@ export default function LoginScreen() {
   const handleGoogleSignInWithCode = async (code: string) => {
     setLoading(true);
     try {
+      console.log('🔄 Starting Google OAuth flow with code');
+      
+      // Try direct Supabase OAuth first (simpler approach)
+      try {
+        console.log('🔄 Attempting direct Supabase OAuth...');
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: 'com.akhilpadala.opennotes:/oauthredirect',
+          }
+        });
+        
+        if (error) throw error;
+        console.log('✅ Direct OAuth successful:', data);
+        
+        // Check if user exists
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData.session) {
+          const userEmail = sessionData.session.user.email ?? '';
+          const { data: userRow } = await supabase
+            .from('users')
+            .select('id')
+            .ilike('email', userEmail)
+            .maybeSingle();
+          
+          if (userRow) {
+            router.replace('/');
+          } else {
+            router.replace('/main/InterestsScreen');
+          }
+        }
+        return;
+      } catch (directError) {
+        console.log('❌ Direct OAuth failed, trying backend approach:', directError);
+      }
+
+      // Fallback to backend approach
       const codeVerifier = await AsyncStorage.getItem('google_code_verifier');
       if (!codeVerifier) throw new Error('No code verifier found for PKCE flow.');
       console.log('Calling backend with code and codeVerifier:', code, codeVerifier);
-      const backendUrl = 'http://192.168.19.251:5000/oauth/google';
+      const backendUrl = `${getBackendUrl()}/oauth/google`;
+      console.log('🌐 OAuth backend URL:', backendUrl);
+      
+      // Test connection first
+      console.log('🔍 Testing connection to backend...');
+      const testResponse = await fetch(backendUrl, { method: 'GET' });
+      console.log('📡 Test response status:', testResponse.status);
+      
       const response = await fetch(backendUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -199,6 +244,8 @@ export default function LoginScreen() {
         }),
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', response.headers);
       const data = await response.json();
       console.log('Backend response:', data);
       if (data.error) {
@@ -235,7 +282,8 @@ export default function LoginScreen() {
         router.replace('/main/InterestsScreen');
       }
     } catch (error: any) {
-      console.log('Error in handleGoogleSignInWithCode:', error);
+      console.log('❌ Error in handleGoogleSignInWithCode:', error);
+      console.log('🔍 Full error details:', JSON.stringify(error, null, 2));
       Alert.alert('Error', error.message || 'Authentication failed');
     } finally {
       setLoading(false);
