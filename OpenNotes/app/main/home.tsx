@@ -19,6 +19,9 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { handleShare } from '../utils/shareHandler';
 import * as DocumentPicker from 'expo-document-picker';
 import { getBackendUrl } from '../utils/config';
+import BackgroundWrapper from '../utils/BackgroundWrapper';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const BACKEND_URL = getBackendUrl();
 
@@ -388,89 +391,97 @@ const handleInteraction = async (post_id: number, type: 'like' | 'view' | 'share
   // Render a single post card
   const renderItem = ({ item }: { item: Post }) => {
     return (
-      <View style={styles.postCard}>
-        <Text style={styles.title}>{item.title}</Text>
-        <Text style={styles.metaText}>
-          {item.viewCount} views • {item.likeCount} likes
-        </Text>
+      <View style={styles.cardWrapper}>
+        <BlurView intensity={40} tint="dark" style={styles.postCard}>
+          <LinearGradient
+            colors={["#60a5fa", "#818cf8"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.cardAccent}
+          />
+          <Text style={styles.title}>{item.title}</Text>
+          <Text style={styles.metaText}>
+            {item.viewCount} views • {item.likeCount} likes
+          </Text>
 
-        {item.url && (
-          <TouchableOpacity
-            style={styles.pdfButton}
-            onPress={() => navigation.navigate('PdfWebViewer', { fileUrl: item.url })}
-          >
-            <Ionicons name="document-text-outline" size={20} color="#007AFF" />
-            <Text style={styles.pdfButtonText}>View PDF</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Upload PDF button for text posts */}
-        {item.type === 'text' && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <TouchableOpacity style={styles.pdfButton} onPress={() => openUploadFormModal(item.id)}>
-              <Ionicons name="cloud-upload-outline" size={20} color="#007AFF" />
-              <Text style={styles.pdfButtonText}>Upload PDF</Text>
+          {item.url && (
+            <TouchableOpacity
+              style={styles.pdfButton}
+              onPress={() => navigation.navigate('PdfWebViewer', { fileUrl: item.url })}
+            >
+              <Ionicons name="document-text-outline" size={20} color="#60a5fa" />
+              <Text style={styles.pdfButtonText}>View PDF</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.pdfButton, { marginLeft: 8 }]} onPress={() => openUploadsModal(item.id)}>
-              <Ionicons name="list-outline" size={20} color="#007AFF" />
-              <Text style={styles.pdfButtonText}>View Uploads</Text>
+          )}
+
+          {/* Upload PDF button for text posts */}
+          {item.type === 'text' && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <TouchableOpacity style={styles.pdfButton} onPress={() => openUploadFormModal(item.id)}>
+                <Ionicons name="cloud-upload-outline" size={20} color="#60a5fa" />
+                <Text style={styles.pdfButtonText}>Upload PDF</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.pdfButton, { marginLeft: 8 }]} onPress={() => openUploadsModal(item.id)}>
+                <Ionicons name="list-outline" size={20} color="#60a5fa" />
+                <Text style={styles.pdfButtonText}>View Uploads</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <TouchableOpacity onPress={() => toggleDescription(item.id)}>
+            <Text style={styles.toggleDescriptionText}>
+              {item.showDescription ? 'Hide Description' : 'Show Description'}
+            </Text>
+          </TouchableOpacity>
+
+          {item.showDescription && <Text style={styles.description}>{item.description}</Text>}
+
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => !item.isInteractionPending && handleInteraction(item.id, 'like')}
+              disabled={item.isInteractionPending}
+            >
+              <Ionicons
+                name={item.isLiked ? 'thumbs-up' : 'thumbs-up-outline'}
+                size={20}
+                color={item.isLiked ? '#60a5fa' : '#fff'}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => navigation.navigate('Comment', { postId: item.id, userId: userId! })}
+            >
+              <Ionicons name="chatbubble-outline" size={20} color="#fff" />
+              <Text style={styles.countText}>{item.commentCount ?? 0}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => handleShare(item, userId)}
+            >
+              <Ionicons name="share-social-outline" size={20} color="#fff" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionBtn} onPress={() => toggleBookmark(item.id)}
+              disabled={item.isBookmarkPending}
+            >
+              <Ionicons
+                name={item.isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                size={20}
+                color={item.isBookmarked ? '#fbbf24' : '#fff'}
+              />
+              <Text style={styles.countText}>{item.bookmarkCount ?? 0}</Text>
             </TouchableOpacity>
           </View>
-        )}
-
-        <TouchableOpacity onPress={() => toggleDescription(item.id)}>
-          <Text style={styles.toggleDescriptionText}>
-            {item.showDescription ? 'Hide Description' : 'Show Description'}
-          </Text>
-        </TouchableOpacity>
-
-        {item.showDescription && <Text style={styles.description}>{item.description}</Text>}
-
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => !item.isInteractionPending && handleInteraction(item.id, 'like')}
-            disabled={item.isInteractionPending}
-          >
-            <Ionicons
-              name={item.isLiked ? 'thumbs-up' : 'thumbs-up-outline'}
-              size={20}
-              color={item.isLiked ? '#3B82F6' : '#007AFF'}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => navigation.navigate('Comment', { postId: item.id, userId: userId! })}
-          >
-            <Ionicons name="chatbubble-outline" size={20} color="#007AFF" />
-            <Text style={styles.countText}>{item.commentCount ?? 0}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => handleShare(item, userId)}
-          >
-            <Ionicons name="share-social-outline" size={20} color="#007AFF" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionBtn} onPress={() => toggleBookmark(item.id)}
-            disabled={item.isBookmarkPending}
-          >
-            <Ionicons
-              name={item.isBookmarked ? 'bookmark' : 'bookmark-outline'}
-              size={20}
-              color={item.isBookmarked ? '#f59e0b' : '#007AFF'}
-            />
-            <Text style={styles.countText}>{item.bookmarkCount ?? 0}</Text>
-          </TouchableOpacity>
-        </View>
+        </BlurView>
       </View>
     );
   };
 
   return (
-    <>
+    <BackgroundWrapper>
       <FlatList
         data={posts.filter(post => post && post.id)}
         keyExtractor={item => item.id.toString()}
@@ -569,86 +580,100 @@ const handleInteraction = async (post_id: number, type: 'like' | 'view' | 'share
           </View>
         </View>
       </Modal>
-    </>
+    </BackgroundWrapper>
   );
 }
 
 const styles = StyleSheet.create({
+  cardWrapper: {
+    marginHorizontal: 0,
+    marginVertical: 16,
+    paddingHorizontal: 12,
+  },
   postCard: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(30,41,59,0.7)',
+    borderRadius: 24,
     padding: 20,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(96,165,250,0.15)',
+    overflow: 'hidden',
+  },
+  cardAccent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 6,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    opacity: 0.7,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 8,
-    color: '#1F2937',
-    letterSpacing: 0.3,
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 6,
+    letterSpacing: 0.2,
   },
   metaText: {
     fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 12,
+    color: '#cbd5e1',
+    marginBottom: 10,
     fontWeight: '500',
   },
   pdfButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    padding: 12,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
+    marginBottom: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(96,165,250,0.08)',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: 'rgba(96,165,250,0.18)',
   },
   pdfButtonText: {
     marginLeft: 8,
-    color: '#2563EB',
+    color: '#60a5fa',
     fontWeight: '600',
     fontSize: 15,
   },
   toggleDescriptionText: {
-    color: '#2563EB',
+    color: '#818cf8',
     marginBottom: 10,
     fontWeight: '600',
     fontSize: 15,
+    textAlign: 'right',
   },
   description: {
     fontSize: 16,
-    color: '#374151',
+    color: '#e0e7ef',
     marginBottom: 8,
     lineHeight: 24,
     letterSpacing: 0.2,
   },
   actions: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     marginTop: 16,
-    paddingTop: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: 'rgba(96,165,250,0.12)',
     alignItems: 'center',
   },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     marginHorizontal: 2,
   },
   actionText: {
@@ -659,18 +684,19 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontSize: 13,
-    color: '#888',
-    marginLeft: 2,
-    fontWeight: '600',
+    color: '#fbbf24',
+    marginLeft: 4,
+    fontWeight: '700',
   },
   inputBox: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: '#334155',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: 'rgba(30,41,59,0.7)',
+    color: '#fff',
     marginBottom: 10,
   },
 });

@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { getBackendUrl } from '../utils/config';
+import BackgroundWrapper from '../utils/BackgroundWrapper';
 
 console.log('LoginScreen mounted');
 
@@ -187,53 +188,12 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       console.log('🔄 Starting Google OAuth flow with code');
-      
-      // Try direct Supabase OAuth first (simpler approach)
-      try {
-        console.log('🔄 Attempting direct Supabase OAuth...');
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: 'com.akhilpadala.opennotes:/oauthredirect',
-          }
-        });
-        
-        if (error) throw error;
-        console.log('✅ Direct OAuth successful:', data);
-        
-        // Check if user exists
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData.session) {
-          const userEmail = sessionData.session.user.email ?? '';
-          const { data: userRow } = await supabase
-            .from('users')
-            .select('id')
-            .ilike('email', userEmail)
-            .maybeSingle();
-          
-          if (userRow) {
-            router.replace('/');
-          } else {
-            router.replace('/main/InterestsScreen');
-          }
-        }
-        return;
-      } catch (directError) {
-        console.log('❌ Direct OAuth failed, trying backend approach:', directError);
-      }
-
-      // Fallback to backend approach
+      // Always use backend code exchange flow
       const codeVerifier = await AsyncStorage.getItem('google_code_verifier');
       if (!codeVerifier) throw new Error('No code verifier found for PKCE flow.');
       console.log('Calling backend with code and codeVerifier:', code, codeVerifier);
       const backendUrl = `${getBackendUrl()}/oauth/google`;
       console.log('🌐 OAuth backend URL:', backendUrl);
-      
-      // Test connection first
-      console.log('🔍 Testing connection to backend...');
-      const testResponse = await fetch(backendUrl, { method: 'GET' });
-      console.log('📡 Test response status:', testResponse.status);
-      
       const response = await fetch(backendUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -243,16 +203,13 @@ export default function LoginScreen() {
           redirectUri: 'com.akhilpadala.opennotes:/oauthredirect',
         }),
       });
-
       console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', response.headers);
       const data = await response.json();
       console.log('Backend response:', data);
       if (data.error) {
         console.log('Backend returned error:', data.error, data.error_description);
         throw new Error(data.error_description || data.error);
       }
-
       // Now sign in with Supabase using the id_token
       console.log('Signing in with Supabase using id_token:', data.id_token);
       const { data: supaData, error } = await supabase.auth.signInWithIdToken({
@@ -260,15 +217,12 @@ export default function LoginScreen() {
         token: data.id_token,
       });
       console.log('Supabase signInWithIdToken result:', { supaData, error });
-
       if (error) throw error;
-
       const { data: sessionData } = await supabase.auth.getSession();
       console.log('Session after Supabase signInWithIdToken:', sessionData);
       if (!sessionData.session) {
         throw new Error('No session found after sign-in');
       }
-
       // 3. Check if user exists in users table (case-insensitive)
       const userEmail = sessionData.session.user.email ?? '';
       const { data: userRow } = await supabase
@@ -277,7 +231,7 @@ export default function LoginScreen() {
         .ilike('email', userEmail)
         .maybeSingle();
       if (userRow) {
-      router.replace('/');
+        router.replace('/');
       } else {
         router.replace('/main/InterestsScreen');
       }
@@ -308,25 +262,27 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {loading ? (
-        <>
-          <ActivityIndicator size="large" color="#4285F4" />
-          <Text style={{ marginTop: 16, color: '#4285F4', fontWeight: 'bold' }}>Signing you in...</Text>
-        </>
-      ) : (
-        <>
-          <Text style={styles.title}>Sign in to OpenNotes</Text>
-          <Pressable
-            style={[styles.button, { backgroundColor: '#4285F4' }]}
-            onPress={handleGoogleLogin}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>Sign in with Google</Text>
-          </Pressable>
-        </>
-      )}
-    </View>
+    <BackgroundWrapper>
+      <View style={styles.container}>
+        {loading ? (
+          <>
+            <ActivityIndicator size="large" color="#4285F4" />
+            <Text style={{ marginTop: 16, color: '#4285F4', fontWeight: 'bold' }}>Signing you in...</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.title}>Sign in to OpenNotes</Text>
+            <Pressable
+              style={[styles.button, { backgroundColor: '#4285F4' }]}
+              onPress={handleGoogleLogin}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>Sign in with Google</Text>
+            </Pressable>
+          </>
+        )}
+      </View>
+    </BackgroundWrapper>
   );
 }
 
@@ -335,13 +291,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 40,
-    color: '#111',
+    color: '#ffffff',
   },
   button: {
     paddingVertical: 12,

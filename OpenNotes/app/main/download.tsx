@@ -8,6 +8,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { handleShare } from '../utils/shareHandler';
 import DocumentPicker from 'expo-document-picker';
 import { getBackendUrl } from '../utils/config';
+import BackgroundWrapper from '../utils/BackgroundWrapper';
 
 const BACKEND_URL = getBackendUrl();
 
@@ -348,104 +349,109 @@ const toggleDescription = (postId: number) => {
 );
 
   return (
-    <>
-      <FlatList
-        data={bookmarkedPosts.filter(post => post && post.id)}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderItem}
-        ListEmptyComponent={<Text style={styles.emptyText}>No bookmarks found.</Text>}
-      />
-      {/* Upload PDF Modal */}
-      <Modal
-        visible={uploadFormModal.visible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={closeUploadFormModal}
-      >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '85%' }}>
-            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 12 }}>Upload PDF to Post</Text>
-            <TextInput
-              placeholder="Title"
-              value={uploadForm.title}
-              onChangeText={text => setUploadForm(form => ({ ...form, title: text }))}
-              style={[styles.inputBox, { marginBottom: 10 }]}
-              placeholderTextColor="#aaa"
-            />
-            <TextInput
-              placeholder="Description"
-              value={uploadForm.description}
-              onChangeText={text => setUploadForm(form => ({ ...form, description: text }))}
-              style={[styles.inputBox, { marginBottom: 10, height: 80 }]}
-              multiline
-              placeholderTextColor="#aaa"
-            />
-            <TextInput
-              placeholder="Tags (comma separated)"
-              value={uploadForm.tags}
-              onChangeText={text => setUploadForm(form => ({ ...form, tags: text }))}
-              style={[styles.inputBox, { marginBottom: 10 }]}
-              placeholderTextColor="#aaa"
-            />
-            <TouchableOpacity style={styles.pdfButton} onPress={handlePickPDF}>
-              <Ionicons name="document-text-outline" size={20} color="#007AFF" />
-              <Text style={styles.pdfButtonText}>{uploadForm.file ? uploadForm.file.name : 'Select PDF'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.pdfButton, { backgroundColor: '#3B82F6', marginTop: 16 }]}
-              onPress={handleUploadPDFToPost}
-              disabled={uploadFormLoading}
-            >
-              <Text style={{ color: '#fff', fontWeight: 'bold' }}>{uploadFormLoading ? 'Uploading...' : 'Upload PDF'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={closeUploadFormModal} style={{ marginTop: 16, alignSelf: 'center' }}>
-              <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 16 }}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-      {/* Uploads Modal */}
-      <Modal
-        visible={uploadsModal.visible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={closeUploadsModal}
-      >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '85%', maxHeight: '70%' }}>
-            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 12 }}>Uploads</Text>
-            {uploadsLoading ? (
-              <ActivityIndicator size="large" color="#3B82F6" />
-            ) : uploadsList.length === 0 ? (
-              <Text style={{ color: '#888', textAlign: 'center' }}>No uploads yet.</Text>
-            ) : (
-              <FlatList
-                data={uploadsList}
-                keyExtractor={item => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity style={{ paddingVertical: 10 }} onPress={() => {
-                    closeUploadsModal();
-                    navigation.navigate('PdfWebViewer', { fileUrl: item.url });
-                  }}>
-                    <Text style={{ color: '#2563EB', fontWeight: '600' }}>{item.title || 'PDF'}</Text>
-                    <Text style={{ color: '#888', fontSize: 12 }}>{new Date(item.created_at).toLocaleString()}</Text>
-                  </TouchableOpacity>
-                )}
+    <BackgroundWrapper>
+      <View style={styles.container}>
+        <FlatList
+          data={bookmarkedPosts.filter(post => post && post.id)}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          ListEmptyComponent={<Text style={styles.emptyText}>No bookmarks found.</Text>}
+        />
+        {/* Upload PDF Modal */}
+        <Modal
+          visible={uploadFormModal.visible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={closeUploadFormModal}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '85%' }}>
+              <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 12 }}>Upload PDF to Post</Text>
+              <TextInput
+                placeholder="Title"
+                value={uploadForm.title}
+                onChangeText={text => setUploadForm(form => ({ ...form, title: text }))}
+                style={[styles.inputBox, { marginBottom: 10 }]}
+                placeholderTextColor="#aaa"
               />
-            )}
-            <TouchableOpacity onPress={closeUploadsModal} style={{ marginTop: 16, alignSelf: 'center' }}>
-              <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 16 }}>Close</Text>
-            </TouchableOpacity>
+              <TextInput
+                placeholder="Description"
+                value={uploadForm.description}
+                onChangeText={text => setUploadForm(form => ({ ...form, description: text }))}
+                style={[styles.inputBox, { marginBottom: 10, height: 80 }]}
+                multiline
+                placeholderTextColor="#aaa"
+              />
+              <TextInput
+                placeholder="Tags (comma separated)"
+                value={uploadForm.tags}
+                onChangeText={text => setUploadForm(form => ({ ...form, tags: text }))}
+                style={[styles.inputBox, { marginBottom: 10 }]}
+                placeholderTextColor="#aaa"
+              />
+              <TouchableOpacity style={styles.pdfButton} onPress={handlePickPDF}>
+                <Ionicons name="document-text-outline" size={20} color="#007AFF" />
+                <Text style={styles.pdfButtonText}>{uploadForm.file ? uploadForm.file.name : 'Select PDF'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.pdfButton, { backgroundColor: '#3B82F6', marginTop: 16 }]}
+                onPress={handleUploadPDFToPost}
+                disabled={uploadFormLoading}
+              >
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>{uploadFormLoading ? 'Uploading...' : 'Upload PDF'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={closeUploadFormModal} style={{ marginTop: 16, alignSelf: 'center' }}>
+                <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 16 }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Modal>
-    </>
+        </Modal>
+        {/* Uploads Modal */}
+        <Modal
+          visible={uploadsModal.visible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={closeUploadsModal}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '85%', maxHeight: '70%' }}>
+              <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 12 }}>Uploads</Text>
+              {uploadsLoading ? (
+                <ActivityIndicator size="large" color="#3B82F6" />
+              ) : uploadsList.length === 0 ? (
+                <Text style={{ color: '#888', textAlign: 'center' }}>No uploads yet.</Text>
+              ) : (
+                <FlatList
+                  data={uploadsList}
+                  keyExtractor={item => item.id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity style={{ paddingVertical: 10 }} onPress={() => {
+                      closeUploadsModal();
+                      navigation.navigate('PdfWebViewer', { fileUrl: item.url });
+                    }}>
+                      <Text style={{ color: '#2563EB', fontWeight: '600' }}>{item.title || 'PDF'}</Text>
+                      <Text style={{ color: '#888', fontSize: 12 }}>{new Date(item.created_at).toLocaleString()}</Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
+              <TouchableOpacity onPress={closeUploadsModal} style={{ marginTop: 16, alignSelf: 'center' }}>
+                <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 16 }}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    </BackgroundWrapper>
   );
 };
 
 export default DownloadScreen;
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   postCard: {
     backgroundColor: '#fff',
     padding: 16,

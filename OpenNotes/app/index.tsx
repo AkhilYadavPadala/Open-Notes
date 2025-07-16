@@ -6,6 +6,7 @@ import LoginScreen from './main/LoginScreen';
 import { createStackNavigator } from '@react-navigation/stack';
 import * as WebBrowser from 'expo-web-browser';
 import InterestsScreen from './main/InterestsScreen';
+import BackgroundWrapper from './utils/BackgroundWrapper';
 
 WebBrowser.maybeCompleteAuthSession();
 const Stack = createStackNavigator();
@@ -24,12 +25,14 @@ function AuthStack() {
 
 function SplashScreen() {
   return (
-    <View style={styles.splashContainer}>
-      {/* Replace with your logo if available */}
-      <Image source={require('../assets/images/splash-icon.png')} style={styles.splashLogo} />
-      <Text style={styles.splashTitle}>Open Notes</Text>
-      <ActivityIndicator size="large" color="#2563EB" style={{ marginTop: 24 }} />
-    </View>
+    <BackgroundWrapper>
+      <View style={styles.splashContainer}>
+        {/* Replace with your logo if available */}
+        <Image source={require('../assets/images/splash-icon.png')} style={styles.splashLogo} />
+        <Text style={styles.splashTitle}>Open Notes</Text>
+        <ActivityIndicator size="large" color="#ffffff" style={{ marginTop: 24 }} />
+      </View>
+    </BackgroundWrapper>
   );
 }
 
@@ -65,7 +68,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
   },
   splashLogo: {
     width: 100,
@@ -76,7 +78,7 @@ const styles = StyleSheet.create({
   splashTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#2563EB',
+    color: '#ffffff',
     marginBottom: 8,
     letterSpacing: 1.2,
   },

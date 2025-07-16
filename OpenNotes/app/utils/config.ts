@@ -5,14 +5,14 @@
 const isDevelopment = __DEV__;
 
 // For testing: Set this to true to use local server even in production builds
-const USE_LOCAL_SERVER_FOR_TESTING = true;
+const USE_LOCAL_SERVER_FOR_TESTING = false;
 
 export const API_CONFIG = {
   // Development: Use your local IP address
   // Production: Use your deployed backend URL
   BACKEND_URL: (isDevelopment || USE_LOCAL_SERVER_FOR_TESTING)
     ? 'http://192.168.0.177:5000'  // Your local development server
-    : 'https://your-production-backend-url.com', // Replace with your actual production URL
+    : 'https://balanced-charisma-production.up.railway.app', // Updated to Railway production URL
   
   // You can add more environment-specific configs here
   SUPABASE_URL: "https://tnkuquaugcxcgenrrbmx.supabase.co",

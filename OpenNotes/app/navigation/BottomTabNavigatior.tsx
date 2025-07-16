@@ -181,25 +181,26 @@ export default function BottomTabNavigator() {
         tabBarShowLabel: false,
         tabBarStyle: {
           position: 'absolute',
-          backgroundColor: colorScheme === 'dark' ? '#111' : '#fff',
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
           height: 70,
+          borderTopWidth: 0,
         },
         tabBarIcon: ({ focused }) => {
           let iconName: any;
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
-            return <Ionicons name={iconName} size={24} color={focused ? '#3B82F6' : 'gray'} />;
+            return <Ionicons name={iconName} size={24} color={focused ? '#ffffff' : '#888888'} />;
           } else if (route.name === 'Search') {
             iconName = focused ? 'search' : 'search-outline';
-            return <Ionicons name={iconName} size={24} color={focused ? '#3B82F6' : 'gray'} />;
+            return <Ionicons name={iconName} size={24} color={focused ? '#ffffff' : '#888888'} />;
           } else if (route.name === 'Download') {
-            return <Feather name="download" size={24} color={focused ? '#3B82F6' : 'gray'} />;
+            return <Feather name="download" size={24} color={focused ? '#ffffff' : '#888888'} />;
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
-            return <Ionicons name={iconName} size={24} color={focused ? '#3B82F6' : 'gray'} />;
+            return <Ionicons name={iconName} size={24} color={focused ? '#ffffff' : '#888888'} />;
           }
         },
       })}

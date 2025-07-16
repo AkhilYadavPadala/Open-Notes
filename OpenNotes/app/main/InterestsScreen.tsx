@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Button, StyleSheet, Alert, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
 import { supabase } from '../utils/supabase';
 import { useRouter } from 'expo-router';
+import BackgroundWrapper from '../utils/BackgroundWrapper';
 
 const TAGS = [
   'Machine Learning',
@@ -81,33 +82,37 @@ export default function InterestsScreen() {
 
   if (!userInfo) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" />
-      </View>
+      <BackgroundWrapper>
+        <View style={styles.container}>
+          <ActivityIndicator size="large" color="#ffffff" />
+        </View>
+      </BackgroundWrapper>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Select your interests</Text>
-      <Text style={styles.label}>Choose topics you are interested in:</Text>
-      <ScrollView contentContainerStyle={styles.tagsContainer}>
-        {TAGS.map((tag) => (
-          <TouchableOpacity
-            key={tag}
-            style={[styles.tag, selectedTags.includes(tag) && styles.tagSelected]}
-            onPress={() => toggleTag(tag)}
-          >
-            <Text style={[styles.tagText, selectedTags.includes(tag) && styles.tagTextSelected]}>{tag}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-      <Button 
-        title={loading ? 'Saving...' : 'Continue'} 
-        onPress={handleSubmit} 
-        disabled={loading || selectedTags.length === 0} 
-      />
-    </View>
+    <BackgroundWrapper>
+      <View style={styles.container}>
+        <Text style={styles.title}>Select your interests</Text>
+        <Text style={styles.label}>Choose topics you are interested in:</Text>
+        <ScrollView contentContainerStyle={styles.tagsContainer}>
+          {TAGS.map((tag) => (
+            <TouchableOpacity
+              key={tag}
+              style={[styles.tag, selectedTags.includes(tag) && styles.tagSelected]}
+              onPress={() => toggleTag(tag)}
+            >
+              <Text style={[styles.tagText, selectedTags.includes(tag) && styles.tagTextSelected]}>{tag}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <Button 
+          title={loading ? 'Saving...' : 'Continue'} 
+          onPress={handleSubmit} 
+          disabled={loading || selectedTags.length === 0} 
+        />
+      </View>
+    </BackgroundWrapper>
   );
 }
 
@@ -117,18 +122,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    backgroundColor: '#f9fafb',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
-    color: '#111',
+    color: '#ffffff',
   },
   label: {
     fontSize: 16,
     marginBottom: 10,
-    color: '#333',
+    color: '#ffffff',
     textAlign: 'center',
   },
   tagsContainer: {

@@ -12,6 +12,7 @@ import {
 import { supabase } from '../utils/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import { useRoute } from '@react-navigation/native';
+import BackgroundWrapper from '../utils/BackgroundWrapper';
 
 const TAGS = [
   'Machine Learning', 'Python', 'AI', 'DBMS', 'Web Development', 'Data Science',
@@ -108,96 +109,101 @@ export default function ProfileScreen() {
   };
   
   return (
-    <View style={styles.container}>
-      <View style={styles.header} />
-      <View style={styles.profileContainer}>
-        {(!userIdParam || userIdParam === currentUserId) ? (
-          <Pressable onPress={pickImage} style={{ alignItems: 'center' }}>
+    <BackgroundWrapper>
+      <View style={styles.container}>
+        <View style={styles.header} />
+        <View style={styles.profileContainer}>
+          {(!userIdParam || userIdParam === currentUserId) ? (
+            <Pressable onPress={pickImage} style={{ alignItems: 'center' }}>
+              <Image source={{ uri: profileImage }} style={styles.profileImage} />
+              <Text style={styles.uploadText}>Upload Profile</Text>
+            </Pressable>
+          ) : (
             <Image source={{ uri: profileImage }} style={styles.profileImage} />
-            <Text style={styles.uploadText}>Upload Profile</Text>
-          </Pressable>
-        ) : (
-          <Image source={{ uri: profileImage }} style={styles.profileImage} />
-        )}
-        <Text style={styles.username}>{userInfo?.name || user?.email || 'User'}</Text>
-        <View style={styles.interestsContainer}>
-          <Text style={styles.sectionTitle}>Interests</Text>
-          <View style={styles.tagsWrap}>
-            {userInfo?.interests && userInfo.interests.length > 0 ? (
-              userInfo.interests.map((tag) => (
-                <View key={tag} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.noInterests}>No interests set</Text>
-            )}
+          )}
+          <Text style={styles.username}>{userInfo?.name || user?.email || 'User'}</Text>
+          <View style={styles.interestsContainer}>
+            <Text style={styles.sectionTitle}>Interests</Text>
+            <View style={styles.tagsWrap}>
+              {userInfo?.interests && userInfo.interests.length > 0 ? (
+                userInfo.interests.map((tag) => (
+                  <View key={tag} style={styles.tag}>
+                    <Text style={styles.tagText}>{tag}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noInterests}>No interests set</Text>
+              )}
+            </View>
           </View>
+          {/* Only show edit/logout for current user */}
+          {(!userIdParam || userIdParam === currentUserId) && (
+            <>
+              <Pressable style={styles.button} onPress={() => setEditModalVisible(true)}>
+                <Text style={styles.buttonText}>Edit Profile</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.button, { backgroundColor: '#EF4444' }]}
+                onPress={async () => {
+                  await supabase.auth.signOut();
+                  setUser(null);
+                  Alert.alert('Logged Out');
+                }}
+              >
+                <Text style={styles.buttonText}>Logout</Text>
+              </Pressable>
+            </>
+          )}
         </View>
-        {/* Only show edit/logout for current user */}
-        {(!userIdParam || userIdParam === currentUserId) && (
-          <>
-            <Pressable style={styles.button} onPress={() => setEditModalVisible(true)}>
-              <Text style={styles.buttonText}>Edit Profile</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.button, { backgroundColor: '#EF4444' }]}
-              onPress={async () => {
-                await supabase.auth.signOut();
-                setUser(null);
-                Alert.alert('Logged Out');
-              }}
-            >
-              <Text style={styles.buttonText}>Logout</Text>
-            </Pressable>
-          </>
-        )}
+        {/* Edit Interests Modal */}
+        <Modal
+          visible={editModalVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setEditModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Edit Interests</Text>
+              <ScrollView contentContainerStyle={styles.tagsWrap}>
+                {TAGS.map((tag) => (
+                  <Pressable
+                    key={tag}
+                    style={[styles.tag, selectedTags.includes(tag) && styles.tagSelected]}
+                    onPress={() => toggleTag(tag)}
+                  >
+                    <Text style={[styles.tagText, selectedTags.includes(tag) && styles.tagTextSelected]}>{tag}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <Pressable
+                style={[styles.button, { marginTop: 20, backgroundColor: '#3B82F6' }]}
+                onPress={handleSaveInterests}
+                disabled={loading}
+              >
+                <Text style={styles.buttonText}>{loading ? 'Saving...' : 'Save'}</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.button, { marginTop: 10, backgroundColor: '#aaa' }]}
+                onPress={() => setEditModalVisible(false)}
+                disabled={loading}
+              >
+                <Text style={styles.buttonText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
       </View>
-      {/* Edit Interests Modal */}
-      <Modal
-        visible={editModalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setEditModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Interests</Text>
-            <ScrollView contentContainerStyle={styles.tagsWrap}>
-              {TAGS.map((tag) => (
-                <Pressable
-                  key={tag}
-                  style={[styles.tag, selectedTags.includes(tag) && styles.tagSelected]}
-                  onPress={() => toggleTag(tag)}
-                >
-                  <Text style={[styles.tagText, selectedTags.includes(tag) && styles.tagTextSelected]}>{tag}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-            <Pressable
-              style={[styles.button, { marginTop: 20, backgroundColor: '#3B82F6' }]}
-              onPress={handleSaveInterests}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>{loading ? 'Saving...' : 'Save'}</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.button, { marginTop: 10, backgroundColor: '#aaa' }]}
-              onPress={() => setEditModalVisible(false)}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>Cancel</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-    </View>
+    </BackgroundWrapper>
   );
 }
 
 // Styles
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f9fafb' },
+  container: {
+    flex: 1,
+    // backgroundColor: '#f9fafb', // Remove this line
+  },
   header: {
     height: 100,
     backgroundColor: '#3B82F6',

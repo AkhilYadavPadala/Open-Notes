@@ -13,6 +13,7 @@ import { supabase } from '../utils/supabase';
 import { handleShare } from '../utils/shareHandler';
 import * as DocumentPicker from 'expo-document-picker';
 import { getBackendUrl } from '../utils/config';
+import BackgroundWrapper from '../utils/BackgroundWrapper';
 
 const BACKEND_URL = getBackendUrl();
 const defaultTags = ['AI', 'Machine Learning', 'python', 'Dbms'];
@@ -434,17 +435,18 @@ export default function SearchScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#aaa" />
-        <TextInput
-          placeholder="Search notes..."
-          style={styles.input}
-          value={search}
-          onChangeText={setSearch}
-        />
-        <Feather name="filter" size={20} color="#007AFF" />
-      </View>
+    <BackgroundWrapper>
+      <View style={styles.container}>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#aaa" />
+          <TextInput
+            placeholder="Search notes..."
+            style={styles.input}
+            value={search}
+            onChangeText={setSearch}
+          />
+          <Feather name="filter" size={20} color="#007AFF" />
+        </View>
 
       {search === '' && (
         <View style={styles.tagsContainer}>
@@ -567,39 +569,40 @@ export default function SearchScreen() {
         </View>
       </Modal>
     </View>
+    </BackgroundWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  container: { flex: 1, padding: 16 },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#eee',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 8,
     paddingHorizontal: 10,
     marginBottom: 10,
   },
-  input: { flex: 1, padding: 10, fontSize: 16 },
+  input: { flex: 1, padding: 10, fontSize: 16, color: '#ffffff' },
   tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
   tagBtn: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     marginRight: 8,
     marginBottom: 8,
   },
-  tagText: { fontSize: 14, color: '#555' },
+  tagText: { fontSize: 14, color: '#ffffff' },
   postCard: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     padding: 16,
     marginBottom: 12,
     borderRadius: 10,
     elevation: 3,
   },
-  title: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
-  metaText: { fontSize: 12, color: '#666', marginBottom: 10 },
+  title: { fontSize: 18, fontWeight: 'bold', marginBottom: 5, color: '#ffffff' },
+  metaText: { fontSize: 12, color: '#cccccc', marginBottom: 10 },
   pdfButton: {
     flexDirection: 'row',
     alignItems: 'center',

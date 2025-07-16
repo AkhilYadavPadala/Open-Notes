@@ -16,6 +16,7 @@ import axios from 'axios';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getBackendUrl } from '../utils/config';
+import BackgroundWrapper from '../utils/BackgroundWrapper';
 
 const BACKEND_URL = getBackendUrl();
 
@@ -69,73 +70,75 @@ export default function CommentScreen({ navigation }: any) {
   }, []);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-        keyboardVerticalOffset={Platform.select({ ios: 100, android: 80 })}
-      >
-        {/* Comments List */}
-        <View style={styles.commentsContainer}>
-          <FlatList
-            data={comments}
-            keyExtractor={(item, index) => `${item.id}-${index}`}
-            renderItem={({ item }) => (
-              <View style={styles.commentItemRow}>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('ProfileScreen', { userId: item.user?.id })}
-                  disabled={!item.user?.id}
-                >
-                  <Image
-                    source={{ uri: item.user?.avatar_url || 'https://via.placeholder.com/40' }}
-                    style={styles.profileIcon}
-                  />
-                </TouchableOpacity>
-                <View style={styles.commentBubble}>
-                  <Text style={styles.commentAuthor}>{item.user?.name || 'User'}</Text>
-                  <Text style={styles.commentText}>{item.comment_text}</Text>
+    <BackgroundWrapper>
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.container}
+          keyboardVerticalOffset={Platform.select({ ios: 100, android: 80 })}
+        >
+          {/* Comments List */}
+          <View style={styles.commentsContainer}>
+            <FlatList
+              data={comments}
+              keyExtractor={(item, index) => `${item.id}-${index}`}
+              renderItem={({ item }) => (
+                <View style={styles.commentItemRow}>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('ProfileScreen', { userId: item.user?.id })}
+                    disabled={!item.user?.id}
+                  >
+                    <Image
+                      source={{ uri: item.user?.avatar_url || 'https://via.placeholder.com/40' }}
+                      style={styles.profileIcon}
+                    />
+                  </TouchableOpacity>
+                  <View style={styles.commentBubble}>
+                    <Text style={styles.commentAuthor}>{item.user?.name || 'User'}</Text>
+                    <Text style={styles.commentText}>{item.comment_text}</Text>
+                  </View>
                 </View>
-              </View>
-            )}
-            contentContainerStyle={styles.flatListContent}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No comments yet</Text>
-              </View>
-            }
-          />
-        </View>
-
-        {/* Fixed Input Area */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            placeholder="Write a comment..."
-            value={commentText}
-            onChangeText={setCommentText}
-            style={styles.input}
-            multiline
-          />
-          <TouchableOpacity 
-            onPress={handlePostComment} 
-            style={styles.sendButton}
-            disabled={!commentText.trim()}
-          >
-            <Ionicons 
-              name="send" 
-              size={24} 
-              color={commentText.trim() ? '#007AFF' : '#ccc'} 
+              )}
+              contentContainerStyle={styles.flatListContent}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No comments yet</Text>
+                </View>
+              }
             />
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          </View>
+
+          {/* Fixed Input Area */}
+          <View style={styles.inputContainer}>
+            <TextInput
+              placeholder="Write a comment..."
+              value={commentText}
+              onChangeText={setCommentText}
+              style={styles.input}
+              multiline
+            />
+            <TouchableOpacity 
+              onPress={handlePostComment} 
+              style={styles.sendButton}
+              disabled={!commentText.trim()}
+            >
+              <Ionicons 
+                name="send" 
+                size={24} 
+                color={commentText.trim() ? '#007AFF' : '#ccc'} 
+              />
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </BackgroundWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    // backgroundColor: '#fff', // Remove this line
   },
   container: { 
     flex: 1,
