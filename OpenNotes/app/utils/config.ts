@@ -11,7 +11,7 @@ export const API_CONFIG = {
   // Development: Use your local IP address
   // Production: Use your deployed backend URL
   BACKEND_URL: (isDevelopment || USE_LOCAL_SERVER_FOR_TESTING)
-    ? 'http://192.168.0.177:5000'  // Your local development server
+    ? 'http://192.168.0.122:5000'  // Your local development server
     : 'https://balanced-charisma-production.up.railway.app', // Updated to Railway production URL
   
   // You can add more environment-specific configs here
