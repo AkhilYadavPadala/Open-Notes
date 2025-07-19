@@ -39,6 +39,19 @@ router.post("/post", upload.none(), async (req, res) => {
   }
 });
 
+// Utility: Generate clean filename to avoid encoding issues
+function generateCleanFileName(originalName) {
+  const timestamp = Date.now();
+  const extension = originalName.split('.').pop().toLowerCase();
+  const baseName = originalName.replace(/\.[^/.]+$/, ''); // Remove extension
+  const cleanBaseName = baseName
+    .replace(/[^a-zA-Z0-9]/g, '_') // Replace special chars with underscore
+    .replace(/_+/g, '_') // Replace multiple underscores with single
+    .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
+  
+  return `${timestamp}_${cleanBaseName}.${extension}`;
+}
+
 // New: Upload a PDF for a text post (many PDFs per post)
 router.post('/:postId/upload', upload.single('file'), async (req, res) => {
   try {
@@ -47,10 +60,9 @@ router.post('/:postId/upload', upload.single('file'), async (req, res) => {
     if (!postId || !req.file) {
       return res.status(400).json({ error: 'Missing postId or file' });
     }
-    // Upload PDF to Supabase Storage (opennotes bucket, uploads folder)
-    const fileExt = req.file.originalname.split('.').pop();
-    const fileName = `post_${postId}_${Date.now()}.${fileExt}`;
-    const filePath = `uploads/${fileName}`;
+    // ✅ Generate clean filename to avoid encoding issues
+    const cleanFileName = generateCleanFileName(req.file.originalname);
+    const filePath = `uploads/${cleanFileName}`;
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('opennotes')
       .upload(filePath, req.file.buffer, {
@@ -69,7 +81,7 @@ router.post('/:postId/upload', upload.single('file'), async (req, res) => {
           post_id: postId,
           user_id,
           url: pdfUrl,
-          filename: req.file.originalname,
+          filename: req.file.originalname, // Keep original name for display
           created_at: new Date(),
         },
       ])

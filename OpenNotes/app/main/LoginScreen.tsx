@@ -17,6 +17,22 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  // Session check on mount
+  useEffect(() => {
+    AsyncStorage.setItem('testKey', 'testValue');
+    AsyncStorage.getItem('testKey').then(value => {
+      console.log('AsyncStorage test value:', value);
+    });
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Session:', session);
+      if (session) {
+        router.replace('/'); // User is already logged in, go to home
+      }
+    };
+    checkSession();
+  }, []);
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: '296978714021-2j0qim3a41vnfgch8vvv5hjgro5bgkpc.apps.googleusercontent.com',
     scopes: ['profile', 'email'],

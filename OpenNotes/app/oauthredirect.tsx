@@ -1,13 +1,21 @@
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { View, ActivityIndicator, Text } from 'react-native';
+import { supabase } from './utils/supabase';
 
 export default function OAuthRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    // Just redirect to login, where the code exchange will happen
-    router.replace('/main/LoginScreen');
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.replace('/'); // User is logged in, go to home
+      } else {
+        router.replace('/main/LoginScreen'); // Not logged in, go to login
+      }
+    };
+    checkSession();
   }, [router]);
 
   return (

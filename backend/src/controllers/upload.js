@@ -6,6 +6,19 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
+// Utility: Generate clean filename to avoid encoding issues
+function generateCleanFileName(originalName) {
+  const timestamp = Date.now();
+  const extension = originalName.split('.').pop().toLowerCase();
+  const baseName = originalName.replace(/\.[^/.]+$/, ''); // Remove extension
+  const cleanBaseName = baseName
+    .replace(/[^a-zA-Z0-9]/g, '_') // Replace special chars with underscore
+    .replace(/_+/g, '_') // Replace multiple underscores with single
+    .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
+  
+  return `${timestamp}_${cleanBaseName}.${extension}`;
+}
+
 router.post("/upload", upload.single("file"), async (req, res) => {
   try {
     const { title, tags, description } = req.body;
@@ -13,7 +26,9 @@ router.post("/upload", upload.single("file"), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     if (!title || !description) return res.status(400).json({ error: "Missing required fields" });
 
-    const filePath = `uploads/${Date.now()}-${req.file.originalname}`;
+    // ✅ Generate clean filename to avoid encoding issues
+    const cleanFileName = generateCleanFileName(req.file.originalname);
+    const filePath = `uploads/${cleanFileName}`;
 
     // ✅ Upload file to Supabase Storage
     const { data, error } = await supabase.storage
@@ -33,7 +48,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       .from("opennotes")
       .insert([
         {
-          name: req.file.originalname,
+          name: req.file.originalname, // Keep original name for display
           url: filePublicUrl,
           title,
           tags,
@@ -70,7 +85,9 @@ router.post("/upload-to-post/:postId", upload.single("file"), async (req, res) =
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const filePath = `uploads/${Date.now()}-${req.file.originalname}`;
+    // ✅ Generate clean filename to avoid encoding issues
+    const cleanFileName = generateCleanFileName(req.file.originalname);
+    const filePath = `uploads/${cleanFileName}`;
     console.log("Uploading to storage:", filePath);
 
     // Upload file to Supabase Storage
@@ -95,7 +112,7 @@ router.post("/upload-to-post/:postId", upload.single("file"), async (req, res) =
       .from("opennotes")
       .insert([
         {
-          name: req.file.originalname,
+          name: req.file.originalname, // Keep original name for display
           url: filePublicUrl,
           title,
           tags,
