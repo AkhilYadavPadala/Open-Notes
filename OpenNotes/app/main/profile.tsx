@@ -8,15 +8,11 @@ import {
   Alert,
   Modal,
   ScrollView,
-  FlatList,
-  TextInput,
 } from 'react-native';
 import { supabase } from '../utils/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import { useRoute } from '@react-navigation/native';
 import BackgroundWrapper from '../utils/BackgroundWrapper';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 
 const TAGS = [
   'Machine Learning', 'Python', 'AI', 'DBMS', 'Web Development', 'Data Science',
@@ -34,11 +30,6 @@ export default function ProfileScreen() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  // Add state for bookmarks (collection)
-  const [bookmarks, setBookmarks] = useState<any[]>([]);
-  const [bio, setBio] = useState('');
-  const [editName, setEditName] = useState('');
-  const [editBio, setEditBio] = useState('');
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -48,7 +39,7 @@ export default function ProfileScreen() {
         // Fetch another user's profile by id
         const { data, error } = await supabase
           .from('users')
-          .select('name, interests, avatar_url, bio')
+          .select('name, interests, avatar_url')
           .eq('id', userIdParam)
           .maybeSingle();
         if (data) {
@@ -57,7 +48,6 @@ export default function ProfileScreen() {
             interests: data.interests ? data.interests.split(',').map((t: string) => t.trim()) : [],
           });
           setProfileImage(data.avatar_url || 'https://via.placeholder.com/150');
-          setBio(data.bio || '');
         }
         return;
       }
@@ -68,7 +58,7 @@ export default function ProfileScreen() {
       if (!email) return;
       const { data, error } = await supabase
         .from('users')
-        .select('name, interests, bio')
+        .select('name, interests')
         .ilike('email', email)
         .maybeSingle();
       if (data) {
@@ -77,26 +67,10 @@ export default function ProfileScreen() {
           interests: data.interests ? data.interests.split(',').map((t: string) => t.trim()) : [],
         });
         setSelectedTags(data.interests ? data.interests.split(',').map((t: string) => t.trim()) : []);
-        setBio(data.bio || '');
       }
     };
     fetchProfile();
   }, [userIdParam]);
-
-  // Fetch bookmarks for collection
-  const fetchBookmarks = async () => {
-    if (!currentUserId) return;
-    try {
-      const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:5000'}/bookmark/bookmark/${currentUserId}`);
-      const data = await res.json();
-      setBookmarks(data.bookmarks || []);
-    } catch (err) {
-      setBookmarks([]);
-    }
-  };
-  useEffect(() => {
-    if (currentUserId) fetchBookmarks();
-  }, [userIdParam, currentUserId]);
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -133,117 +107,55 @@ export default function ProfileScreen() {
       setLoading(false);
     }
   };
-
-  // When opening edit modal, set edit fields
-  const openEditModal = () => {
-    setEditName(userInfo?.name || user?.email || '');
-    setEditBio(bio || '');
-    setEditModalVisible(true);
-  };
-
-  // Save name and bio
-  const handleSaveProfile = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ name: editName, bio: editBio, interests: selectedTags.join(', '), avatar_url: profileImage })
-        .ilike('email', user.email);
-      if (error) throw error;
-      setUserInfo((prev) => prev ? { ...prev, name: editName, interests: selectedTags } : prev);
-      setBio(editBio);
-      setEditModalVisible(false);
-      Alert.alert('Success', 'Profile updated!');
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update profile');
-    } finally {
-      setLoading(false);
-    }
-  };
   
   return (
     <BackgroundWrapper>
-      <View style={{ flex: 1 }}>
-        {/* Gradient Header */}
-        <LinearGradient colors={["#60a5fa", "#818cf8"]} style={styles.gradientHeader} />
-        {/* Profile Card */}
-        <View style={styles.profileCard}>
-          <View style={{ alignItems: 'center', marginTop: -60 }}>
+      <View style={styles.container}>
+        <View style={styles.header} />
+        <View style={styles.profileContainer}>
+          {(!userIdParam || userIdParam === currentUserId) ? (
             <Pressable onPress={pickImage} style={{ alignItems: 'center' }}>
-              <Image source={{ uri: profileImage }} style={styles.profileImageLarge} />
-              <Text style={styles.uploadText}>Change Image</Text>
+              <Image source={{ uri: profileImage }} style={styles.profileImage} />
+              <Text style={styles.uploadText}>Upload Profile</Text>
             </Pressable>
-            <Text style={styles.username}>{userInfo?.name || editName || 'User'}</Text>
-            <Text style={styles.bioText}>{bio || 'No bio set'}</Text>
-            <View style={styles.statsRow}>
-              <View style={styles.statBox}>
-                <Text style={styles.statValue}>{bookmarks.length}</Text>
-                <Text style={styles.statLabel}>Bookmarks</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statValue}>0</Text>
-                <Text style={styles.statLabel}>Uploads</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statValue}>0</Text>
-                <Text style={styles.statLabel}>Likes</Text>
-              </View>
+          ) : (
+            <Image source={{ uri: profileImage }} style={styles.profileImage} />
+          )}
+          <Text style={styles.username}>{userInfo?.name || user?.email || 'User'}</Text>
+          <View style={styles.interestsContainer}>
+            <Text style={styles.sectionTitle}>Interests</Text>
+            <View style={styles.tagsWrap}>
+              {userInfo?.interests && userInfo.interests.length > 0 ? (
+                userInfo.interests.map((tag) => (
+                  <View key={tag} style={styles.tag}>
+                    <Text style={styles.tagText}>{tag}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noInterests}>No interests set</Text>
+              )}
             </View>
           </View>
+          {/* Only show edit/logout for current user */}
+          {(!userIdParam || userIdParam === currentUserId) && (
+            <>
+              <Pressable style={styles.button} onPress={() => setEditModalVisible(true)}>
+                <Text style={styles.buttonText}>Edit Profile</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.button, { backgroundColor: '#EF4444' }]}
+                onPress={async () => {
+                  await supabase.auth.signOut();
+                  setUser(null);
+                  Alert.alert('Logged Out');
+                }}
+              >
+                <Text style={styles.buttonText}>Logout</Text>
+              </Pressable>
+            </>
+          )}
         </View>
-        {/* Collection Section */}
-        <View style={{ marginTop: 20, marginLeft: 20 }}>
-          <Text style={styles.sectionTitle}>Collection</Text>
-          <FlatList
-            data={bookmarks}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={item => item.id?.toString() || Math.random().toString()}
-            renderItem={({ item }) => (
-              <View style={styles.collectionCard}>
-                <View style={styles.collectionImagePlaceholder}>
-                  <Ionicons name="bookmark" size={32} color="#fff" />
-                </View>
-                <Text style={styles.collectionLabel} numberOfLines={1}>{item.title || 'Saved'}</Text>
-              </View>
-            )}
-            ListEmptyComponent={<Text style={{ color: '#aaa', marginTop: 10 }}>No bookmarks yet.</Text>}
-            contentContainerStyle={{ paddingRight: 20 }}
-          />
-        </View>
-        {/* Interests Section */}
-        <View style={{ marginTop: 20, marginLeft: 20 }}>
-          <Text style={styles.sectionTitle}>Interests</Text>
-          <View style={styles.tagsWrap}>
-            {userInfo?.interests && userInfo.interests.length > 0 ? (
-              userInfo.interests.map((tag) => (
-                <View key={tag} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.noInterests}>No interests set</Text>
-            )}
-          </View>
-        </View>
-        {/* Edit/Logout Buttons */}
-        <View style={{ alignItems: 'center', marginTop: 20 }}>
-          <Pressable style={styles.button} onPress={openEditModal}>
-            <Text style={styles.buttonText}>Edit Profile</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.button, { backgroundColor: '#EF4444' }]}
-            onPress={async () => {
-              await supabase.auth.signOut();
-              setUser(null);
-              Alert.alert('Logged Out');
-            }}
-          >
-            <Text style={styles.buttonText}>Logout</Text>
-          </Pressable>
-        </View>
-        {/* Edit Profile Modal */}
+        {/* Edit Interests Modal */}
         <Modal
           visible={editModalVisible}
           animationType="slide"
@@ -251,36 +163,8 @@ export default function ProfileScreen() {
           onRequestClose={() => setEditModalVisible(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.editProfileCard}>
-              <Text style={styles.editProfileTitle}>Edit Profile</Text>
-              <Pressable onPress={pickImage} style={{ alignItems: 'center', marginBottom: 20 }}>
-                <Image source={{ uri: profileImage }} style={styles.editProfileImage} />
-                <Text style={styles.uploadText}>Change Image</Text>
-              </Pressable>
-              <View style={styles.inputSection}>
-                <Text style={styles.inputLabel}>Name</Text>
-                <TextInput
-                  style={styles.inputBox}
-                  placeholder="Enter your name"
-                  value={editName}
-                  onChangeText={setEditName}
-                  placeholderTextColor="#aaa"
-                />
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.inputSection}>
-                <Text style={styles.inputLabel}>Bio</Text>
-                <TextInput
-                  style={[styles.inputBox, { height: 80 }]}
-                  placeholder="Tell us about yourself..."
-                  value={editBio}
-                  onChangeText={setEditBio}
-                  multiline
-                  placeholderTextColor="#aaa"
-                />
-              </View>
-              <View style={styles.divider} />
-              <Text style={[styles.inputLabel, { marginBottom: 6 }]}>Interests</Text>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Edit Interests</Text>
               <ScrollView contentContainerStyle={styles.tagsWrap}>
                 {TAGS.map((tag) => (
                   <Pressable
@@ -294,7 +178,7 @@ export default function ProfileScreen() {
               </ScrollView>
               <Pressable
                 style={[styles.button, { marginTop: 20, backgroundColor: '#3B82F6' }]}
-                onPress={handleSaveProfile}
+                onPress={handleSaveInterests}
                 disabled={loading}
               >
                 <Text style={styles.buttonText}>{loading ? 'Saving...' : 'Save'}</Text>
@@ -423,168 +307,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#3B82F6',
     marginBottom: 16,
-  },
-  gradientHeader: {
-    height: 180,
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    zIndex: 1,
-  },
-  profileCard: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    marginHorizontal: 20,
-    marginTop: 100,
-    paddingTop: 70,
-    paddingBottom: 24,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
-    zIndex: 2,
-  },
-  profileImageLarge: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: '#fff',
-    marginTop: -60,
-    marginBottom: 8,
-    zIndex: 3,
-  },
-  username: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#222',
-    marginTop: 4,
-    marginBottom: 2,
-    textAlign: 'center',
-  },
-  locationText: {
-    fontSize: 14,
-    color: '#60a5fa',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    marginBottom: 10,
-    width: '80%',
-  },
-  statBox: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#3B82F6',
-  },
-  statLabel: {
-    fontSize: 13,
-    color: '#888',
-    marginTop: 2,
-  },
-  collectionCard: {
-    width: 110,
-    height: 120,
-    backgroundColor: '#818cf8',
-    borderRadius: 18,
-    marginRight: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  collectionImagePlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 16,
-    backgroundColor: '#60a5fa',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  collectionLabel: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 15,
-    textAlign: 'center',
-    width: '100%',
-  },
-  bioText: {
-    fontSize: 15,
-    color: '#666',
-    marginBottom: 10,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  inputBox: {
-    height: 50,
-    fontSize: 16,
-    color: '#000',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 10,
-    backgroundColor: '#f9fafe',
-  },
-  editProfileCard: {
-    width: '92%',
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 24,
-    alignItems: 'center',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-  },
-  editProfileTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#3B82F6',
-    marginBottom: 18,
-    textAlign: 'center',
-  },
-  editProfileImage: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 3,
-    borderColor: '#3B82F6',
-    marginBottom: 6,
-  },
-  inputSection: {
-    width: '100%',
-    marginBottom: 10,
-  },
-  inputLabel: {
-    fontSize: 15,
-    color: '#3B82F6',
-    fontWeight: '600',
-    marginBottom: 4,
-    marginLeft: 2,
-  },
-  divider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: '#e5e7eb',
-    marginVertical: 10,
-    borderRadius: 1,
   },
 });

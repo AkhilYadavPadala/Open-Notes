@@ -10,7 +10,6 @@ import {
   Modal,
   ActivityIndicator,
   TextInput,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -23,7 +22,6 @@ import { getBackendUrl } from '../utils/config';
 import BackgroundWrapper from '../utils/BackgroundWrapper';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import PdfThumbnail from 'react-native-pdf-thumbnail';
 
 const BACKEND_URL = getBackendUrl();
 
@@ -43,8 +41,6 @@ type Post = {
   commentCount?: number;
   bookmarkCount?: number;
   type?: string;
-  avatar_url?: string;
-  location?: string;
 };
 
 type InteractionResponse = {
@@ -65,84 +61,6 @@ async function getCurrentUserId() {
     .maybeSingle();
   if (error || !data) return null;
   return data.id;
-}
-
-// PostCard component for each post
-function PostCard({ item, navigation, userId, handleInteraction, handleShare }: any) {
-  const [pdfThumb, setPdfThumb] = React.useState<string | null>(null);
-  const [thumbLoading, setThumbLoading] = React.useState(false);
-  React.useEffect(() => {
-    let isMounted = true;
-    if (item.url) {
-      setThumbLoading(true);
-      PdfThumbnail.generate(item.url, 0)
-        .then(({ uri }) => { if (isMounted) setPdfThumb(uri); })
-        .catch(() => { if (isMounted) setPdfThumb(null); })
-        .finally(() => { if (isMounted) setThumbLoading(false); });
-    } else {
-      setPdfThumb(null);
-      setThumbLoading(false);
-    }
-    return () => { isMounted = false; };
-  }, [item.url]);
-  return (
-    <View style={styles.officialCardDark}>
-      {/* Top Row: Profile image, name, location/info, menu */}
-      <View style={styles.cardTopRow}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          <Image
-            source={{ uri: item.avatar_url || 'https://via.placeholder.com/40' }}
-            style={styles.cardProfileImage}
-          />
-          <View style={{ marginLeft: 10 }}>
-            <Text style={styles.cardNameDark}>{item.title}</Text>
-            <Text style={styles.cardLocationDark}>{item.location || (item.url ? 'PDF File' : 'No location')}</Text>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.cardMenuBtn}>
-          <Ionicons name="ellipsis-horizontal" size={22} color="#b0b0b0" />
-        </TouchableOpacity>
-      </View>
-      {/* PDF Preview */}
-      <View style={styles.cardPdfPreviewWrap}>
-        {item.url ? (
-          <TouchableOpacity onPress={() => navigation.navigate('PdfWebViewer', { fileUrl: item.url })}>
-            <View style={styles.cardPdfPreviewDark}>
-              {thumbLoading ? (
-                <ActivityIndicator size="small" color="#60a5fa" style={{ marginBottom: 8 }} />
-              ) : pdfThumb ? (
-                <Image source={{ uri: pdfThumb }} style={styles.cardPdfImage} />
-              ) : (
-                <Ionicons name="document-text-outline" size={40} color="#60a5fa" />
-              )}
-              <Text style={styles.cardPdfLabelDark}>Preview PDF</Text>
-            </View>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-      {/* Description (optional) */}
-      {item.description ? (
-        <Text style={styles.cardDescriptionDark} numberOfLines={3}>{item.description}</Text>
-      ) : null}
-      {/* Actions Row */}
-      <View style={styles.cardActionsRow}>
-        <View style={styles.cardActionsLeft}>
-          <TouchableOpacity style={styles.cardActionBtn} onPress={() => !item.isInteractionPending && handleInteraction(item.id, 'like')} disabled={item.isInteractionPending}>
-            <Ionicons name={item.isLiked ? 'heart' : 'heart-outline'} size={20} color={item.isLiked ? '#f87171' : '#fff'} />
-            <Text style={styles.cardActionCountDark}>{item.likeCount}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.cardActionBtn} onPress={() => navigation.navigate('Comment', { postId: item.id, userId: userId! })}>
-            <Ionicons name="chatbubble-outline" size={20} color="#fff" />
-            <Text style={styles.cardActionCountDark}>{item.commentCount ?? 0}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.cardActionBtn} onPress={() => handleShare(item, userId)}>
-            <Ionicons name="paper-plane-outline" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.cardTimestampDark}>35 min ago</Text>
-      </View>
-    </View>
-  );
 }
 
 export default function HomeScreen({ navigation }: any) {
@@ -471,15 +389,96 @@ const handleInteraction = async (post_id: number, type: 'like' | 'view' | 'share
   };
 
   // Render a single post card
-  const renderItem = ({ item }: { item: Post }) => (
-    <PostCard
-      item={item}
-      navigation={navigation}
-      userId={userId}
-      handleInteraction={handleInteraction}
-      handleShare={handleShare}
-    />
-  );
+  const renderItem = ({ item }: { item: Post }) => {
+    return (
+      <View style={styles.cardWrapper}>
+        <BlurView intensity={40} tint="dark" style={styles.postCard}>
+          <LinearGradient
+            colors={["#60a5fa", "#818cf8"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.cardAccent}
+          />
+          <Text style={styles.title}>{item.title}</Text>
+          <Text style={styles.metaText}>
+            {item.viewCount} views • {item.likeCount} likes
+          </Text>
+
+          {item.url && (
+            <TouchableOpacity
+              style={styles.pdfButton}
+              onPress={() => navigation.navigate('PdfWebViewer', { fileUrl: item.url })}
+            >
+              <Ionicons name="document-text-outline" size={20} color="#60a5fa" />
+              <Text style={styles.pdfButtonText}>View PDF</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Upload PDF button for text posts */}
+          {item.type === 'text' && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <TouchableOpacity style={styles.pdfButton} onPress={() => openUploadFormModal(item.id)}>
+                <Ionicons name="cloud-upload-outline" size={20} color="#60a5fa" />
+                <Text style={styles.pdfButtonText}>Upload PDF</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.pdfButton, { marginLeft: 8 }]} onPress={() => openUploadsModal(item.id)}>
+                <Ionicons name="list-outline" size={20} color="#60a5fa" />
+                <Text style={styles.pdfButtonText}>View Uploads</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <TouchableOpacity onPress={() => toggleDescription(item.id)}>
+            <Text style={styles.toggleDescriptionText}>
+              {item.showDescription ? 'Hide Description' : 'Show Description'}
+            </Text>
+          </TouchableOpacity>
+
+          {item.showDescription && <Text style={styles.description}>{item.description}</Text>}
+
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => !item.isInteractionPending && handleInteraction(item.id, 'like')}
+              disabled={item.isInteractionPending}
+            >
+              <Ionicons
+                name={item.isLiked ? 'thumbs-up' : 'thumbs-up-outline'}
+                size={20}
+                color={item.isLiked ? '#60a5fa' : '#fff'}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => navigation.navigate('Comment', { postId: item.id, userId: userId! })}
+            >
+              <Ionicons name="chatbubble-outline" size={20} color="#fff" />
+              <Text style={styles.countText}>{item.commentCount ?? 0}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => handleShare(item, userId)}
+            >
+              <Ionicons name="share-social-outline" size={20} color="#fff" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionBtn} onPress={() => toggleBookmark(item.id)}
+              disabled={item.isBookmarkPending}
+            >
+              <Ionicons
+                name={item.isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                size={20}
+                color={item.isBookmarked ? '#fbbf24' : '#fff'}
+              />
+              <Text style={styles.countText}>{item.bookmarkCount ?? 0}</Text>
+            </TouchableOpacity>
+          </View>
+        </BlurView>
+      </View>
+    );
+  };
 
   return (
     <BackgroundWrapper>
@@ -699,160 +698,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30,41,59,0.7)',
     color: '#fff',
     marginBottom: 10,
-  },
-  officialCard: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: 16,
-    marginHorizontal: 12,
-    marginVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  cardProfileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#eee',
-  },
-  cardName: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    color: '#222',
-  },
-  cardLocation: {
-    fontSize: 13,
-    color: '#7c7c7c',
-    marginTop: 2,
-  },
-  cardMenuBtn: {
-    padding: 6,
-    marginLeft: 8,
-  },
-  cardPdfPreviewWrap: {
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  cardPdfPreview: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    padding: 12,
-    width: 90,
-    height: 90,
-    marginBottom: 4,
-  },
-  cardPdfLabel: {
-    color: '#60a5fa',
-    fontWeight: '600',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  cardDescription: {
-    color: '#444',
-    fontSize: 15,
-    marginBottom: 10,
-    marginTop: 2,
-  },
-  cardActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  cardActionsLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cardActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 18,
-  },
-  cardActionCount: {
-    marginLeft: 4,
-    color: '#222',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  cardTimestamp: {
-    color: '#b0b0b0',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  cardPdfImage: {
-    width: 60,
-    height: 80,
-    borderRadius: 8,
-    resizeMode: 'cover',
-    marginBottom: 4,
-  },
-  officialCardDark: {
-    backgroundColor: '#181f2a',
-    borderRadius: 18,
-    padding: 16,
-    marginHorizontal: 12,
-    marginVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#232b3b',
-  },
-  cardNameDark: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    color: '#fff',
-  },
-  cardLocationDark: {
-    fontSize: 13,
-    color: '#a0aec0',
-    marginTop: 2,
-  },
-  cardPdfPreviewDark: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#232b3b',
-    borderRadius: 12,
-    padding: 12,
-    width: 90,
-    height: 90,
-    marginBottom: 4,
-  },
-  cardPdfLabelDark: {
-    color: '#60a5fa',
-    fontWeight: '600',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  cardDescriptionDark: {
-    color: '#e0e7ef',
-    fontSize: 15,
-    marginBottom: 10,
-    marginTop: 2,
-  },
-  cardActionCountDark: {
-    marginLeft: 4,
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  cardTimestampDark: {
-    color: '#a0aec0',
-    fontSize: 13,
-    fontWeight: '500',
   },
 });

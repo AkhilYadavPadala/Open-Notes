@@ -15,14 +15,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import axios from 'axios';
 import { getBackendUrl } from '../utils/config';
 
-export default function UploadOptionScreen({ navigation, route }) {
+export default function UploadOptionScreen({ navigation }) {
   const textAnim = useRef(new Animated.Value(0)).current;
   const pdfAnim = useRef(new Animated.Value(0)).current;
 
   const [title, setTitle] = useState('');
   const [tags, setTags] = useState('');
   const [textData, setTextData] = useState('');
-  const [uploadMode, setUploadMode] = useState(route?.params?.mode || null);
+  const [uploadMode, setUploadMode] = useState(null);
   const [loading, setLoading] = useState(false);
   const [pdfFile, setPdfFile] = useState<DocumentPicker.DocumentResult | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -49,12 +49,6 @@ export default function UploadOptionScreen({ navigation, route }) {
       useNativeDriver: true,
     }).start();
   }, []);
-
-  useEffect(() => {
-    if (route?.params?.mode) {
-      setUploadMode(route.params.mode);
-    }
-  }, [route?.params?.mode]);
 
   const handlePickPDF = async () => {
     try {
